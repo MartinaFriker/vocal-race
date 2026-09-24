@@ -1,0 +1,859 @@
+<title>Vokal-Rennen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Karla:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --ink:#14181f;
+    --paper:#eef1ec;
+    --raised:#ffffff;
+    --line:#ccd2c5;
+    --muted:#5c6459;
+    --accent:#ff5a36;
+    --accent-ink:#ffffff;
+    --gold:#c9911a;
+    --good:#1f8a4c;
+    --bad:#c2273d;
+    --monaco:#1c6fa8;
+    --nurburgring:#1f7a4d;
+    --monza:#c2273d;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#eef1ec;
+      --paper:#0e1114;
+      --raised:#181c21;
+      --line:#2c333b;
+      --muted:#9aa39b;
+      --accent:#ff7452;
+      --accent-ink:#171000;
+      --gold:#e8bb4e;
+      --good:#3fbd7d;
+      --bad:#ef5c72;
+      --monaco:#5fb3e8;
+      --nurburgring:#5cc98d;
+      --monza:#ef5c72;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eef1ec;
+    --paper:#0e1114;
+    --raised:#181c21;
+    --line:#2c333b;
+    --muted:#9aa39b;
+    --accent:#ff7452;
+    --accent-ink:#171000;
+    --gold:#e8bb4e;
+    --good:#3fbd7d;
+    --bad:#ef5c72;
+    --monaco:#5fb3e8;
+    --nurburgring:#5cc98d;
+    --monza:#ef5c72;
+    color-scheme: dark;
+  }
+
+  html,body{min-height:100%;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:Karla,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  h1,h2,h3{font-family:Rajdhani,Karla,sans-serif; text-transform:uppercase; letter-spacing:.02em; text-wrap:balance; margin:0;}
+  button{font-family:inherit;}
+  :focus-visible{outline:3px solid var(--accent); outline-offset:2px;}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;}
+
+  #app{min-height:100%; display:flex; flex-direction:column; max-width:920px; margin:0 auto;}
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; border-bottom:1px solid var(--line);
+    position:sticky; top:env(safe-area-inset-top,0px); background:var(--paper); z-index:20;
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand-mark{
+    width:30px; height:30px; border-radius:8px; background:var(--ink); color:var(--paper);
+    display:flex; align-items:center; justify-content:center; font-family:Rajdhani; font-weight:700; font-size:15px; flex:none;
+  }
+  .brand-title{font-family:Rajdhani; font-weight:700; font-size:18px; letter-spacing:.03em; text-transform:uppercase;}
+
+  .btn-icon{
+    width:40px; height:40px; border-radius:10px; border:1px solid var(--line); background:var(--raised);
+    color:var(--ink); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .btn-icon:active{transform:translateY(1px);}
+
+  .screen{flex:1 1 auto; display:flex; flex-direction:column; gap:18px; padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px));}
+  .screen.center{align-items:center; justify-content:center; text-align:center;}
+  [hidden]{display:none!important;}
+
+  .lead{color:var(--muted); max-width:56ch; font-size:15px; line-height:1.5;}
+  .field-label{
+    font-family:Rajdhani; font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:13px; color:var(--muted);
+  }
+
+  .track-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px;}
+  .track-card{
+    --card-accent:var(--accent);
+    position:relative; text-align:left; border:1px solid var(--line); background:var(--raised);
+    border-radius:14px; padding:16px 16px 16px 20px; cursor:pointer; color:var(--ink);
+    display:flex; flex-direction:column; gap:6px; min-height:104px;
+  }
+  .track-card::before{
+    content:""; position:absolute; left:0; top:14px; bottom:14px; width:5px; border-radius:4px;
+    background:var(--card-accent); opacity:.55;
+  }
+  .track-card[data-selected="true"]{
+    border-color:var(--card-accent); box-shadow:0 0 0 2px var(--card-accent) inset;
+  }
+  .track-card[data-selected="true"]::before{opacity:1;}
+  .track-name{font-family:Rajdhani; font-weight:700; font-size:19px; text-transform:uppercase; letter-spacing:.02em;}
+  .track-sub{font-size:13px; color:var(--muted); line-height:1.4;}
+  .track-meta{font-size:12px; color:var(--card-accent); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-top:auto;}
+
+  .seg{display:flex; flex-wrap:wrap; gap:8px;}
+  .seg button{
+    border:1px solid var(--line); background:var(--raised); color:var(--ink); border-radius:999px;
+    padding:9px 16px; font-size:14px; font-weight:600; cursor:pointer;
+  }
+  .seg button.is-active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+
+  .best-time{font-size:13px; color:var(--muted);}
+  .best-time strong{color:var(--ink); font-family:"IBM Plex Mono"; font-variant-numeric:tabular-nums;}
+
+  .btn-primary{
+    align-self:flex-start; background:var(--accent); color:var(--accent-ink); border:none; border-radius:12px;
+    padding:15px 22px; font-size:16px; font-weight:700; cursor:pointer; font-family:Rajdhani; letter-spacing:.03em; text-transform:uppercase;
+    min-height:52px;
+  }
+  .btn-primary:disabled{opacity:.6; cursor:default;}
+  .btn-primary:active{transform:translateY(1px);}
+  .btn-secondary{
+    background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:12px;
+    padding:13px 20px; font-size:15px; font-weight:700; cursor:pointer; min-height:48px;
+  }
+
+  .error-box{
+    border:1px solid var(--bad); background:color-mix(in srgb, var(--bad) 10%, var(--raised)); color:var(--bad);
+    border-radius:10px; padding:12px 14px; font-size:14px;
+  }
+
+  /* calibration */
+  .calib-ring{
+    width:120px; height:120px; border-radius:50%; border:6px solid var(--line);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .calib-ring::before{
+    content:""; position:absolute; inset:-6px; border-radius:50%;
+    border:6px solid var(--accent); clip-path:inset(0 calc(100% - var(--p,0%)) 0 0);
+  }
+  .calib-ring span{font-family:"IBM Plex Mono"; font-size:22px; font-weight:600;}
+
+  /* race */
+  .race-stage{display:flex; flex-direction:column; gap:14px; flex:1;}
+  .rail{
+    position:relative; height:56px; border-radius:12px; background:var(--raised); border:1px solid var(--line);
+    padding:0 18px;
+  }
+  .rail-line{position:absolute; left:18px; right:18px; top:50%; height:3px; background:var(--line); transform:translateY(-50%);}
+  .rail-flag{
+    position:absolute; top:50%; right:6px; width:16px; height:24px; transform:translateY(-50%); border-radius:2px;
+    background-image:repeating-conic-gradient(var(--ink) 0 25%, var(--raised) 0 50%); background-size:8px 8px;
+    border:1px solid var(--line);
+  }
+  .rail-marker{
+    position:absolute; top:50%; width:26px; height:26px; margin-left:-13px; transform:translate(0,-50%);
+    border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
+    color:#fff; transition:left .12s linear; border:2px solid var(--paper);
+  }
+  .rail-marker.player{background:var(--accent); z-index:2;}
+  .rail-marker.ai{background:var(--ink); z-index:1;}
+  .rail-label{position:absolute; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); top:-2px;}
+
+  #raceCanvas{width:100%; aspect-ratio:16/7; max-height:340px; border-radius:14px; display:block; border:1px solid var(--line);}
+
+  .hud{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .stat{
+    background:var(--raised); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .stat-label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:700;}
+  .stat-value{font-family:"IBM Plex Mono"; font-size:20px; font-weight:600;}
+
+  .voice-panel{background:var(--raised); border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;}
+  .voice-panel-top{display:flex; justify-content:space-between; align-items:baseline;}
+  .voice-meter-track{position:relative; height:16px; border-radius:999px; background:var(--paper); border:1px solid var(--line); overflow:hidden;}
+  .voice-meter-fill{position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--muted); border-radius:999px; transition:background .15s;}
+  .voice-meter-fill.is-active{background:var(--good);}
+  .voice-meter-threshold{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--bad); left:50%;}
+  #meterState{font-weight:700; font-size:13px;}
+  #meterState.is-active{color:var(--good);}
+
+  .cheer{font-size:14px; font-weight:600; color:var(--muted); min-height:20px;}
+
+  .countdown-wrap{position:relative;}
+  .countdown-overlay{
+    position:absolute; inset:0; background:color-mix(in srgb, var(--ink) 55%, transparent);
+    display:flex; align-items:center; justify-content:center; border-radius:14px; z-index:5;
+  }
+  .countdown-overlay span{font-family:Rajdhani; font-size:64px; font-weight:700; color:#fff;}
+
+  .race-controls{display:flex; justify-content:flex-end;}
+
+  /* result */
+  .result-card{
+    background:var(--raised); border:1px solid var(--line); border-radius:16px; padding:26px; max-width:420px; width:100%;
+    display:flex; flex-direction:column; gap:14px; align-items:center; text-align:center;
+  }
+  .result-headline{font-family:Rajdhani; font-size:30px; font-weight:700; text-transform:uppercase;}
+  .result-headline.win{color:var(--good);}
+  .result-headline.lose{color:var(--bad);}
+  .result-row{display:flex; gap:22px; justify-content:center;}
+  .result-stat{display:flex; flex-direction:column; gap:2px;}
+  .result-stat .stat-value{font-size:22px;}
+  .badge-best{
+    background:color-mix(in srgb, var(--gold) 18%, var(--raised)); color:var(--gold); border:1px solid var(--gold);
+    border-radius:999px; padding:4px 12px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  }
+  .result-actions{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
+
+  /* settings */
+  .settings-backdrop{
+    position:fixed; inset:0; background:color-mix(in srgb, var(--ink) 40%, transparent); z-index:30;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .settings-panel{
+    background:var(--raised); border-radius:18px 18px 0 0; padding:20px 22px calc(22px + env(safe-area-inset-bottom,0px));
+    width:100%; max-width:480px; display:flex; flex-direction:column; gap:14px; border:1px solid var(--line); border-bottom:none;
+  }
+  .settings-row{display:flex; flex-direction:column; gap:6px;}
+  input[type="range"]{width:100%;}
+
+  @media (prefers-reduced-motion: reduce){
+    .rail-marker{transition:none;}
+  }
+
+  @media (max-width:420px){
+    .hud{grid-template-columns:1fr 1fr;}
+    .result-row{gap:14px;}
+  }
+</style>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">VR</div>
+      <div class="brand-title">Vokal-Rennen</div>
+    </div>
+    <button class="btn-icon" id="settingsBtn" aria-label="Einstellungen" type="button">&#9881;</button>
+  </header>
+
+  <!-- SETUP -->
+  <section class="screen" id="screen-setup">
+    <h1 style="font-size:26px;">Strecke &amp; Gegner wählen</h1>
+    <p class="lead">Halte einen Vokal so lange und laut wie möglich ins Mikrofon. Je länger du ohne Unterbrechung sprichst, desto schneller wird dein Auto. Wer zuerst im Ziel ist, gewinnt.</p>
+
+    <div>
+      <div class="field-label" style="margin-bottom:8px;">Strecke</div>
+      <div class="track-grid" id="trackGrid"></div>
+    </div>
+
+    <div>
+      <div class="field-label" style="margin-bottom:8px;">Tempo des Gegners</div>
+      <div class="seg" id="diffSeg"></div>
+    </div>
+
+    <p class="best-time" id="bestTimeLine"></p>
+
+    <button class="btn-primary" id="startBtn" type="button">Mikrofon aktivieren &amp; starten</button>
+    <p class="error-box" id="setupError" hidden></p>
+  </section>
+
+  <!-- CALIBRATION -->
+  <section class="screen center" id="screen-calibrate" hidden>
+    <div class="calib-ring" id="calibRing" style="--p:0%;"><span id="calibPct">0%</span></div>
+    <h2 style="font-size:20px;" id="calibLabel">Kurz still sein …</h2>
+    <p class="lead">Wir messen kurz die Umgebungslautstärke, damit das Auto nur bei echtem Sprechen losfährt.</p>
+    <button class="btn-secondary" id="calibCancel" type="button">Abbrechen</button>
+  </section>
+
+  <!-- RACE -->
+  <section class="screen" id="screen-race" hidden>
+    <div class="race-stage">
+      <div class="rail" id="rail">
+        <div class="rail-line"></div>
+        <div class="rail-flag"></div>
+        <div class="rail-marker ai" id="aiMarker" style="left:0%;">G</div>
+        <div class="rail-marker player" id="playerMarker" style="left:0%;">D</div>
+      </div>
+
+      <div class="countdown-wrap">
+        <canvas id="raceCanvas"></canvas>
+        <div class="countdown-overlay" id="countdownOverlay" hidden><span id="countdownNum">3</span></div>
+      </div>
+
+      <p class="cheer" id="cheer">Bereit? Ton halten zum Losfahren!</p>
+
+      <div class="hud">
+        <div class="stat"><span class="stat-label">Tempo</span><span class="stat-value mono" id="speedVal">0 km/h</span></div>
+        <div class="stat"><span class="stat-label">Haltezeit</span><span class="stat-value mono" id="streakVal">0.0 s</span></div>
+        <div class="stat"><span class="stat-label">Strecke</span><span class="stat-value mono" id="distVal">0 / 0 m</span></div>
+      </div>
+
+      <div class="voice-panel">
+        <div class="voice-panel-top">
+          <span class="field-label">Stimme</span>
+          <span id="meterState">Still</span>
+        </div>
+        <div class="voice-meter-track">
+          <div class="voice-meter-threshold" id="meterThreshold"></div>
+          <div class="voice-meter-fill" id="meterFill"></div>
+        </div>
+      </div>
+
+      <div class="race-controls">
+        <button class="btn-secondary" id="pauseBtn" type="button">Pause</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen center" id="screen-result" hidden>
+    <div class="result-card">
+      <h2 class="result-headline" id="resultHeadline">Sieg!</h2>
+      <span class="badge-best" id="resultBadge" hidden>Neue Bestzeit</span>
+      <div class="result-row">
+        <div class="result-stat"><span class="stat-label">Zeit</span><span class="stat-value mono" id="resultTime">0:00.0</span></div>
+        <div class="result-stat"><span class="stat-label">Bestzeit</span><span class="stat-value mono" id="resultBest">–</span></div>
+      </div>
+      <p class="lead" id="resultTip">Super Ausdauer! Versuch beim nächsten Mal, noch länger durchzuhalten.</p>
+      <div class="result-actions">
+        <button class="btn-primary" id="retryBtn" type="button">Nochmal</button>
+        <button class="btn-secondary" id="changeTrackBtn" type="button">Strecke wechseln</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="settings-backdrop" id="settingsBackdrop" hidden>
+  <div class="settings-panel">
+    <div class="field-label">Einstellungen</div>
+    <div class="settings-row">
+      <label class="field-label" for="sensSlider">Empfindlichkeit Mikrofon</label>
+      <input type="range" id="sensSlider" min="0.5" max="2" step="0.1" value="1">
+    </div>
+    <button class="btn-secondary" id="recalibBtn" type="button">Neu kalibrieren</button>
+    <button class="btn-secondary" id="closeSettingsBtn" type="button">Schließen</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- data ----------
+  var TRACKS = {
+    monaco: { key:"monaco", name:"Monte Carlo", sub:"Kurz & kurvenreich – guter Einstieg", distance:220, accentVar:"--monaco",
+      sky:["#bfe3f2","#eef1ec"], scenery:"coast" },
+    nurburgring: { key:"nurburgring", name:"Nürburgring", sub:"Lang & fordernd – Ausdauer gefragt", distance:620, accentVar:"--nurburgring",
+      sky:["#cdeada","#eef1ec"], scenery:"forest" },
+    monza: { key:"monza", name:"Monza", sub:"Schnell & hart – volles Tempo nötig", distance:380, accentVar:"--monza",
+      sky:["#f6d3d3","#eef1ec"], scenery:"grandstand" }
+  };
+  var DIFFICULTIES = [
+    { key:"easy", label:"Einfach", aiSpeed:15 },
+    { key:"medium", label:"Mittel", aiSpeed:23 },
+    { key:"hard", label:"Schwer", aiSpeed:31 },
+    { key:"expert", label:"Experte", aiSpeed:42 }
+  ];
+  var BASE_SPEED = 13;
+  var MAX_SPEED = 54;
+  var RAMP_TIME = 5.5;     // Sekunden bis Höchsttempo bei durchgehendem Ton
+  var GRACE = 0.35;        // erlaubte kurze Unterbrechung (Atemholen) in Sek.
+  var CALIB_DURATION = 1.2;
+  var PPU = 6;             // Pixel Scroll je "Distanz-Einheit"
+
+  // ---------- state ----------
+  var selectedTrack = "monaco";
+  var selectedDifficulty = "easy";
+  var sensitivity = 1;
+  var reducedMotion = false;
+  try { reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch(e){}
+
+  var audioCtx = null, micStream = null, analyser = null, timeData = null;
+  var noiseFloor = 0.02, baseThreshold = 0.04, gaugeMax = 0.2;
+  var smoothLevel = 0;
+
+  var player, ai, trackDistance, aiSpeed, scrollOffset, streak, silenceTimer, elapsedRaceTime;
+  var raceFinished = false, paused = false, lastFrame = 0;
+  var particles = [];
+  var calibSamples = [], calibStart = 0, calibCancelled = false;
+  var countdownTimer = null;
+  var cheerLastUpdate = 0;
+
+  // ---------- elements ----------
+  var el = {};
+  ["trackGrid","diffSeg","bestTimeLine","startBtn","setupError",
+   "screen-setup","screen-calibrate","screen-race","screen-result",
+   "calibRing","calibPct","calibLabel","calibCancel",
+   "raceCanvas","countdownOverlay","countdownNum","cheer",
+   "speedVal","streakVal","distVal","meterState","meterFill","meterThreshold",
+   "pauseBtn","aiMarker","playerMarker",
+   "resultHeadline","resultBadge","resultTime","resultBest","resultTip","retryBtn","changeTrackBtn",
+   "settingsBtn","settingsBackdrop","sensSlider","recalibBtn","closeSettingsBtn"
+  ].forEach(function(id){ el[id] = document.getElementById(id); });
+
+  var ctx = el.raceCanvas.getContext("2d");
+
+  // ---------- helpers ----------
+  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function formatTime(s){
+    var m = Math.floor(s/60), sec = s - m*60;
+    return m>0 ? (m+":"+(sec<10?"0":"")+sec.toFixed(1)) : sec.toFixed(1)+"s";
+  }
+  function showScreen(id){
+    ["screen-setup","screen-calibrate","screen-race","screen-result"].forEach(function(s){
+      el[s].hidden = (s!==id);
+    });
+  }
+  function bestKey(track,diff){ return "vokalrennen_best_"+track+"_"+diff; }
+  function readBest(track,diff){
+    try { var v = localStorage.getItem(bestKey(track,diff)); return v?parseFloat(v):null; } catch(e){ return null; }
+  }
+  function writeBestIfBetter(track,diff,timeSec){
+    try {
+      var prev = readBest(track,diff);
+      if(prev===null || timeSec<prev){ localStorage.setItem(bestKey(track,diff), String(timeSec)); return true; }
+    } catch(e){}
+    return false;
+  }
+
+  // ---------- setup screen ----------
+  function buildTrackGrid(){
+    el.trackGrid.innerHTML = "";
+    Object.keys(TRACKS).forEach(function(key){
+      var t = TRACKS[key];
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "track-card";
+      card.style.setProperty("--card-accent","var("+t.accentVar+")");
+      card.dataset.selected = (key===selectedTrack) ? "true" : "false";
+      card.setAttribute("role","radio");
+      card.setAttribute("aria-checked", key===selectedTrack ? "true":"false");
+      card.innerHTML =
+        '<span class="track-name">'+t.name+'</span>'+
+        '<span class="track-sub">'+t.sub+'</span>'+
+        '<span class="track-meta">'+t.distance+' m Strecke</span>';
+      card.addEventListener("click", function(){
+        selectedTrack = key;
+        buildTrackGrid();
+        updateBestLine();
+      });
+      el.trackGrid.appendChild(card);
+    });
+  }
+
+  function buildDiffSeg(){
+    el.diffSeg.innerHTML = "";
+    DIFFICULTIES.forEach(function(d){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = d.label;
+      btn.className = (d.key===selectedDifficulty) ? "is-active" : "";
+      btn.addEventListener("click", function(){
+        selectedDifficulty = d.key;
+        buildDiffSeg();
+        updateBestLine();
+      });
+      el.diffSeg.appendChild(btn);
+    });
+  }
+
+  function updateBestLine(){
+    var best = readBest(selectedTrack, selectedDifficulty);
+    el.bestTimeLine.innerHTML = best
+      ? "Bestzeit auf dieser Strecke: <strong>"+formatTime(best)+"</strong>"
+      : "Noch keine Bestzeit auf dieser Strecke.";
+  }
+
+  function showError(msg){
+    el.setupError.textContent = msg;
+    el.setupError.hidden = false;
+  }
+  function clearError(){ el.setupError.hidden = true; }
+
+  // ---------- mic / audio ----------
+  function currentRMS(){
+    analyser.getFloatTimeDomainData(timeData);
+    var sum = 0;
+    for(var i=0;i<timeData.length;i++){ var v=timeData[i]; sum += v*v; }
+    return Math.sqrt(sum/timeData.length);
+  }
+
+  function startFlow(){
+    clearError();
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showError("Dieser Browser unterstützt keinen Mikrofonzugriff. Bitte in Safari auf dem iPad öffnen.");
+      return;
+    }
+    el.startBtn.disabled = true;
+    el.startBtn.textContent = "Mikrofon wird angefragt …";
+
+    if(!audioCtx){
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e){ showError("Audio konnte nicht gestartet werden."); resetStartBtn(); return; }
+    }
+    audioCtx.resume().catch(function(){});
+
+    var proceed = function(){
+      el.startBtn.disabled = false;
+      resetStartBtn();
+      beginCalibration();
+    };
+
+    if(micStream){ proceed(); return; }
+
+    navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } })
+      .then(function(stream){
+        micStream = stream;
+        var src = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        src.connect(analyser);
+        timeData = new Float32Array(analyser.fftSize);
+        proceed();
+      })
+      .catch(function(){
+        resetStartBtn();
+        showError("Kein Mikrofonzugriff erhalten. Bitte in den Browser-Einstellungen erlauben und erneut versuchen.");
+      });
+  }
+  function resetStartBtn(){
+    el.startBtn.disabled = false;
+    el.startBtn.textContent = "Mikrofon aktivieren & starten";
+  }
+
+  // ---------- calibration ----------
+  function beginCalibration(){
+    calibSamples = [];
+    calibCancelled = false;
+    calibStart = performance.now();
+    el.calibLabel.textContent = "Kurz still sein …";
+    showScreen("screen-calibrate");
+    requestAnimationFrame(calibStep);
+  }
+  function calibStep(now){
+    if(calibCancelled) return;
+    var elapsed = (now-calibStart)/1000;
+    calibSamples.push(currentRMS());
+    var pct = clamp(elapsed/CALIB_DURATION,0,1);
+    el.calibRing.style.setProperty("--p",(pct*100)+"%");
+    el.calibPct.textContent = Math.round(pct*100)+"%";
+    if(elapsed < CALIB_DURATION){ requestAnimationFrame(calibStep); }
+    else { finishCalibration(); }
+  }
+  function finishCalibration(){
+    var avg = calibSamples.reduce(function(a,b){return a+b;},0) / Math.max(1,calibSamples.length);
+    noiseFloor = avg;
+    baseThreshold = clamp(avg*2 + 0.015, 0.018, 0.4);
+    gaugeMax = Math.max(0.22, baseThreshold*4);
+    beginCountdownAndRace();
+  }
+
+  // ---------- race setup ----------
+  function resizeCanvas(){
+    var rect = el.raceCanvas.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    el.raceCanvas.width = Math.max(1,Math.round(rect.width*dpr));
+    el.raceCanvas.height = Math.max(1,Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", function(){ if(!el["screen-race"].hidden){ resizeCanvas(); } });
+
+  function beginCountdownAndRace(){
+    var t = TRACKS[selectedTrack];
+    var diff = DIFFICULTIES.filter(function(d){return d.key===selectedDifficulty;})[0];
+    trackDistance = t.distance;
+    aiSpeed = diff.aiSpeed;
+    player = { distance:0, speed:0 };
+    ai = { distance:0 };
+    scrollOffset = 0;
+    streak = 0;
+    silenceTimer = 0;
+    smoothLevel = 0;
+    elapsedRaceTime = 0;
+    raceFinished = false;
+    paused = false;
+    particles = [];
+    cheerLastUpdate = 0;
+
+    el.aiMarker.style.left = "0%";
+    el.playerMarker.style.left = "0%";
+    el.pauseBtn.textContent = "Pause";
+    el.cheer.textContent = "Bereit? Ton halten zum Losfahren!";
+
+    showScreen("screen-race");
+    resizeCanvas();
+    drawRace();
+
+    el.countdownOverlay.hidden = false;
+    var n = 3;
+    el.countdownNum.textContent = String(n);
+    countdownTimer = setInterval(function(){
+      n--;
+      if(n>0){ el.countdownNum.textContent = String(n); }
+      else if(n===0){ el.countdownNum.textContent = "LOS!"; }
+      else {
+        clearInterval(countdownTimer);
+        el.countdownOverlay.hidden = true;
+        lastFrame = performance.now();
+        requestAnimationFrame(raceFrame);
+      }
+    }, 700);
+  }
+
+  // ---------- race loop ----------
+  function raceFrame(now){
+    if(raceFinished) return;
+    var dt = (now-lastFrame)/1000;
+    lastFrame = now;
+    dt = Math.min(dt, 0.05);
+    if(!paused){ updateRace(dt); }
+    drawRace();
+    updateHud();
+    if(!raceFinished){ requestAnimationFrame(raceFrame); }
+  }
+
+  function updateRace(dt){
+    var raw = currentRMS();
+    smoothLevel = lerp(smoothLevel, raw, clamp(dt*6,0,1));
+    var thr = baseThreshold * sensitivity;
+    var voicing = smoothLevel > thr;
+
+    if(voicing){ silenceTimer = 0; streak += dt; }
+    else {
+      silenceTimer += dt;
+      if(silenceTimer > GRACE){ streak = 0; }
+    }
+
+    var target = voicing ? (BASE_SPEED + (MAX_SPEED-BASE_SPEED)*clamp(streak/RAMP_TIME,0,1)) : 0;
+    var rate = (target > player.speed) ? 3 : 2;
+    player.speed = lerp(player.speed, target, clamp(dt*rate,0,1));
+
+    player.distance += Math.max(0,player.speed)*dt;
+    ai.distance += aiSpeed*dt;
+    scrollOffset += player.speed*dt*PPU;
+    elapsedRaceTime += dt;
+
+    if(!reducedMotion && player.speed>4){
+      if(Math.random() < dt*Math.min(6, player.speed/8)){
+        particles.push({ x:0, y:0, life:0.5 });
+      }
+    }
+    particles.forEach(function(p){ p.life -= dt; p.x -= player.speed*dt*PPU*0.6; });
+    particles = particles.filter(function(p){ return p.life>0; });
+
+    updateVoiceUI(voicing, thr);
+    updateCheer(voicing);
+
+    if(!raceFinished && (player.distance>=trackDistance || ai.distance>=trackDistance)){
+      raceFinished = true;
+      var playerWon = player.distance>=trackDistance;
+      finishRace(playerWon);
+    }
+  }
+
+  function updateVoiceUI(voicing, thr){
+    var fillPct = clamp(smoothLevel/gaugeMax,0,1)*100;
+    var thrPct = clamp(thr/gaugeMax,0,1)*100;
+    el.meterFill.style.width = fillPct+"%";
+    el.meterFill.classList.toggle("is-active", voicing);
+    el.meterThreshold.style.left = thrPct+"%";
+    el.meterState.textContent = voicing ? "Aktiv" : "Still";
+    el.meterState.classList.toggle("is-active", voicing);
+  }
+
+  function updateCheer(voicing){
+    if(elapsedRaceTime - cheerLastUpdate < 0.5) return;
+    cheerLastUpdate = elapsedRaceTime;
+    var msg;
+    if(!voicing && streak===0){ msg = "Ton halten, um Gas zu geben!"; }
+    else if(streak < 2){ msg = "Weiter so!"; }
+    else if(streak < 5){ msg = "Super, halt durch!"; }
+    else { msg = "Starke Ausdauer!"; }
+    if(player.distance < ai.distance - 8){ msg += " Der Gegner zieht davon."; }
+    else if(player.distance > ai.distance + 8){ msg = "Du liegst vorne! " + msg; }
+    el.cheer.textContent = msg;
+  }
+
+  function updateHud(){
+    el.speedVal.textContent = Math.round(player.speed*3.2)+" km/h";
+    el.streakVal.textContent = streak.toFixed(1)+" s";
+    el.distVal.textContent = Math.round(Math.min(player.distance,trackDistance))+" / "+trackDistance+" m";
+    el.playerMarker.style.left = (clamp(player.distance/trackDistance,0,1)*100)+"%";
+    el.aiMarker.style.left = (clamp(ai.distance/trackDistance,0,1)*100)+"%";
+  }
+
+  // ---------- drawing ----------
+  function drawCar(c, x, y, scale, body, glass){
+    c.save();
+    c.translate(x,y);
+    c.scale(scale,scale);
+    c.fillStyle = body;
+    roundRect(c,-30,-10,60,20,6); c.fill();
+    c.fillStyle = glass;
+    roundRect(c,-10,-18,24,12,4); c.fill();
+    c.fillStyle = "#14181f";
+    c.beginPath(); c.arc(-18,10,7,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc(18,10,7,0,Math.PI*2); c.fill();
+    c.restore();
+  }
+  function roundRect(c,x,y,w,h,r){
+    c.beginPath();
+    c.moveTo(x+r,y);
+    c.arcTo(x+w,y,x+w,y+h,r);
+    c.arcTo(x+w,y+h,x,y+h,r);
+    c.arcTo(x,y+h,x,y,r);
+    c.arcTo(x,y,x+w,y,r);
+    c.closePath();
+  }
+
+  function drawScenery(c,w,h,t,offset){
+    var horizon = h*0.62;
+    if(t.scenery==="coast"){
+      c.fillStyle = "#8fb9cf";
+      c.fillRect(0,horizon-14,w,14);
+      c.fillStyle = "#dfe6df";
+      var bx = -(offset*0.15)%140;
+      for(var i=-1;i<w/140+1;i++){
+        c.beginPath();
+        c.moveTo(bx+i*140, horizon);
+        c.lineTo(bx+i*140+40, horizon-30);
+        c.lineTo(bx+i*140+90, horizon);
+        c.closePath(); c.fill();
+      }
+    } else if(t.scenery==="forest"){
+      c.fillStyle = "#3f7a53";
+      var fx = -(offset*0.2)%90;
+      for(var j=-1;j<w/90+1;j++){
+        c.beginPath();
+        c.moveTo(fx+j*90+20,horizon);
+        c.lineTo(fx+j*90+45,horizon-46);
+        c.lineTo(fx+j*90+70,horizon);
+        c.closePath(); c.fill();
+      }
+    } else {
+      c.fillStyle = "#b9b2ad";
+      c.fillRect(0,horizon-24,w,24);
+      var gx = -(offset*0.25)%60;
+      c.fillStyle = "#c2273d";
+      for(var k=-1;k<w/60+1;k++){ c.fillRect(gx+k*60,horizon-24,10,24); }
+    }
+  }
+
+  function drawRace(){
+    var w = el.raceCanvas.clientWidth, h = el.raceCanvas.clientHeight;
+    if(w===0||h===0) return;
+    var t = TRACKS[selectedTrack];
+    var grad = ctx.createLinearGradient(0,0,0,h*0.62);
+    grad.addColorStop(0,t.sky[0]); grad.addColorStop(1,t.sky[1]);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,w,h*0.62);
+
+    drawScenery(ctx,w,h,t,scrollOffset);
+
+    var roadTop = h*0.6;
+    ctx.fillStyle = "#2b2f38";
+    ctx.fillRect(0,roadTop,w,h-roadTop);
+
+    ctx.strokeStyle = "rgba(255,255,255,.75)";
+    ctx.lineWidth = 4;
+    ctx.setLineDash([26,22]);
+    ctx.lineDashOffset = -scrollOffset;
+    ctx.beginPath();
+    ctx.moveTo(0, roadTop + (h-roadTop)/2);
+    ctx.lineTo(w, roadTop + (h-roadTop)/2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    var carY = roadTop + (h-roadTop)/2;
+    particles.forEach(function(p){
+      ctx.fillStyle = "rgba(255,255,255,"+clamp(p.life/0.5,0,1)*0.5+")";
+      ctx.beginPath();
+      ctx.arc(w*0.2 + p.x - 34, carY+6, 5, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    drawCar(ctx, w*0.2, carY, 1, "#ff5a36", "#1c2430");
+  }
+
+  // ---------- finish ----------
+  function finishRace(playerWon){
+    var isBest = false;
+    if(playerWon){ isBest = writeBestIfBetter(selectedTrack, selectedDifficulty, elapsedRaceTime); }
+    showResult(playerWon, isBest);
+  }
+
+  function showResult(playerWon, isBest){
+    el.resultHeadline.textContent = playerWon ? "Sieg!" : "Knapp verloren";
+    el.resultHeadline.className = "result-headline " + (playerWon ? "win" : "lose");
+    el.resultTime.textContent = formatTime(elapsedRaceTime);
+    var best = readBest(selectedTrack, selectedDifficulty);
+    el.resultBest.textContent = best ? formatTime(best) : "–";
+    el.resultBadge.hidden = !isBest;
+    el.resultTip.textContent = playerWon
+      ? "Stark durchgehalten! Für die nächste Stufe: noch länger ohne Pause tönen."
+      : "Der Gegner war schneller unterwegs. Versuch, den Ton noch etwas länger ohne Unterbrechung zu halten.";
+    showScreen("screen-result");
+  }
+
+  // ---------- controls ----------
+  el.startBtn.addEventListener("click", startFlow);
+  el.calibCancel.addEventListener("click", function(){
+    calibCancelled = true;
+    showScreen("screen-setup");
+  });
+  el.pauseBtn.addEventListener("click", function(){
+    paused = !paused;
+    el.pauseBtn.textContent = paused ? "Weiter" : "Pause";
+    if(!paused){ lastFrame = performance.now(); requestAnimationFrame(raceFrame); }
+  });
+  el.retryBtn.addEventListener("click", function(){ beginCountdownAndRace(); });
+  el.changeTrackBtn.addEventListener("click", function(){
+    buildTrackGrid(); buildDiffSeg(); updateBestLine();
+    showScreen("screen-setup");
+  });
+
+  el.settingsBtn.addEventListener("click", function(){ el.settingsBackdrop.hidden = false; });
+  el.closeSettingsBtn.addEventListener("click", function(){ el.settingsBackdrop.hidden = true; });
+  el.sensSlider.addEventListener("input", function(){ sensitivity = parseFloat(el.sensSlider.value); });
+  el.recalibBtn.addEventListener("click", function(){
+    el.settingsBackdrop.hidden = true;
+    if(!analyser){ return; }
+    if(!el["screen-race"].hidden){ paused = true; }
+    beginCalibration();
+  });
+
+  // ---------- boot (with hot-reload state carry) ----------
+  function init(data){
+    if(data && data.track && TRACKS[data.track]) selectedTrack = data.track;
+    if(data && data.difficulty) selectedDifficulty = data.difficulty;
+    buildTrackGrid();
+    buildDiffSeg();
+    updateBestLine();
+    showScreen("screen-setup");
+  }
+  try {
+    if(window.claude && window.claude.hot && window.claude.hot.snapshot){
+      window.claude.hot.snapshot(function(){ return { track:selectedTrack, difficulty:selectedDifficulty }; });
+    }
+    if(window.claude && window.claude.hot && window.claude.hot.ready){
+      window.claude.hot.ready(init);
+    } else {
+      init(window.claude && window.claude.hot ? window.claude.hot.data : null);
+    }
+  } catch(e){ init(null); }
+})();
+</script>
