@@ -1,0 +1,19 @@
+{
+  "name": "Vokal-Rennen",
+  "short_name": "Vokal-Rennen",
+  "description": "Logopädisches Autorennen: Vokale lange halten, damit das Auto fährt.",
+  "lang": "de",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0b0e",
+  "theme_color": "#0a0b0e",
+  "categories": ["education", "games", "kids"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

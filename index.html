@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vokal-Rennen</title>
+<meta name="description" content="Logopädisches Autorennen: Vokale lange halten, damit das Auto fährt.">
+<meta name="theme-color" content="#0a0b0e">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vokal-Rennen">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Karla:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="intro-overlay" id="introOverlay">
+  <video id="introVideo" muted playsinline webkit-playsinline="true" autoplay preload="auto"></video>
+</div>
+
+<button class="btn-icon settings-fab" id="settingsBtn" aria-label="Einstellungen" type="button">&#9881;</button>
+
+<div id="app">
+  <!-- SETUP -->
+  <section class="screen" id="screen-setup">
+    <div class="track-grid" id="trackGrid"></div>
+
+    <div class="car-grid" id="carGrid"></div>
+
+    <div class="seg" id="diffSeg"></div>
+
+    <p class="best-time" id="bestTimeLine"></p>
+
+    <button class="btn-primary" id="startBtn" type="button">Mikrofon aktivieren &amp; starten</button>
+    <p class="error-box" id="setupError" hidden></p>
+
+    <p class="lead">Sprich A, E, I, O oder U so lange und laut wie möglich, je länger und lauter desto schneller fährt dein Auto.</p>
+  </section>
+
+  <!-- CALIBRATION -->
+  <section class="screen center" id="screen-calibrate" hidden>
+    <div class="calib-ring" id="calibRing" style="--p:0%;"><span id="calibPct">0%</span></div>
+    <h2 style="font-size:20px;" id="calibLabel">Kurz still sein …</h2>
+    <p class="lead">Wir messen kurz die Umgebungslautstärke, damit das Auto nur bei echtem Sprechen losfährt.</p>
+    <button class="btn-secondary" id="calibCancel" type="button">Abbrechen</button>
+  </section>
+
+  <!-- RACE -->
+  <section class="screen" id="screen-race" hidden>
+    <div class="race-stage">
+      <div class="rail" id="rail">
+        <div class="rail-line"></div>
+        <div class="rail-flag"></div>
+        <div class="rail-marker ai" id="aiMarker" style="left:0%;">G</div>
+        <div class="rail-marker player" id="playerMarker" style="left:0%;">D</div>
+      </div>
+
+      <div class="countdown-wrap">
+        <canvas id="raceCanvas"></canvas>
+        <div class="countdown-overlay" id="countdownOverlay" hidden><span id="countdownNum">3</span></div>
+      </div>
+
+      <p class="cheer" id="cheer">Bereit? Ton halten zum Losfahren!</p>
+
+      <div class="hud">
+        <div class="stat"><span class="stat-label">Tempo</span><span class="stat-value mono" id="speedVal">0 km/h</span></div>
+        <div class="stat"><span class="stat-label">Haltezeit</span><span class="stat-value mono" id="streakVal">0.0 s</span></div>
+        <div class="stat"><span class="stat-label">Strecke</span><span class="stat-value mono" id="distVal">0 / 0 m</span></div>
+      </div>
+
+      <div class="voice-panel">
+        <div class="voice-panel-top">
+          <span class="field-label">Stimme</span>
+          <span id="meterState">Still</span>
+        </div>
+        <div class="voice-meter-track">
+          <div class="voice-meter-threshold" id="meterThreshold"></div>
+          <div class="voice-meter-fill" id="meterFill"></div>
+        </div>
+      </div>
+
+      <div class="race-controls">
+        <button class="btn-secondary" id="pauseBtn" type="button">Pause</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen center" id="screen-result" hidden>
+    <div class="result-card">
+      <h2 class="result-headline" id="resultHeadline">Sieg!</h2>
+      <span class="badge-best" id="resultBadge" hidden>Neue Bestzeit</span>
+      <div class="result-row">
+        <div class="result-stat"><span class="stat-label">Zeit</span><span class="stat-value mono" id="resultTime">0:00.0</span></div>
+        <div class="result-stat"><span class="stat-label">Bestzeit</span><span class="stat-value mono" id="resultBest">–</span></div>
+      </div>
+      <p class="lead" id="resultTip">Super Ausdauer! Versuch beim nächsten Mal, noch länger durchzuhalten.</p>
+      <div class="result-actions">
+        <button class="btn-primary" id="retryBtn" type="button">Nochmal</button>
+        <button class="btn-secondary" id="changeTrackBtn" type="button">Strecke wechseln</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="settings-backdrop" id="settingsBackdrop" hidden>
+  <div class="settings-panel">
+    <div class="field-label">Einstellungen</div>
+    <div class="settings-row">
+      <label class="field-label" for="sensSlider">Empfindlichkeit Mikrofon</label>
+      <input type="range" id="sensSlider" min="0.5" max="2" step="0.1" value="1">
+    </div>
+    <button class="btn-secondary" id="recalibBtn" type="button">Neu kalibrieren</button>
+    <button class="btn-secondary" id="closeSettingsBtn" type="button">Schließen</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
