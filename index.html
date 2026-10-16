@@ -115,7 +115,9 @@
     <div class="field-label">Einstellungen</div>
     <div class="settings-row">
       <label class="field-label" for="sensSlider">Empfindlichkeit Mikrofon</label>
-      <input type="range" id="sensSlider" min="0.5" max="2" step="0.1" value="1">
+      <input type="range" id="sensSlider" min="0.5" max="4" step="0.1" value="1">
+      <div class="sens-hint"><span>weniger</span><span>empfindlicher</span></div>
+      <p class="level-readout mono" id="levelReadout"></p>
     </div>
     <button class="btn-secondary" id="recalibBtn" type="button">Neu kalibrieren</button>
     <button class="btn-secondary" id="closeSettingsBtn" type="button">Schließen</button>

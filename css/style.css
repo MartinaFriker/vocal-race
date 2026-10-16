@@ -263,6 +263,8 @@
   }
   .settings-row{display:flex; flex-direction:column; gap:6px;}
   input[type="range"]{width:100%;}
+  .sens-hint{display:flex; justify-content:space-between; font-size:12px; color:var(--muted);}
+  .level-readout{margin:0; font-size:12px; color:var(--muted); min-height:16px;}
 
   @media (prefers-reduced-motion: reduce){
     .rail-marker{transition:none;}

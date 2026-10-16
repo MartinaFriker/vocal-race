@@ -86,7 +86,7 @@
    "speedVal","streakVal","distVal","meterState","meterFill","meterThreshold",
    "pauseBtn","aiMarker","playerMarker",
    "resultHeadline","resultBadge","resultTime","resultBest","resultTip","retryBtn","changeTrackBtn",
-   "settingsBtn","settingsBackdrop","sensSlider","recalibBtn","closeSettingsBtn",
+   "settingsBtn","settingsBackdrop","sensSlider","levelReadout","recalibBtn","closeSettingsBtn",
    "introOverlay","introVideo"
   ].forEach(function(id){ el[id] = document.getElementById(id); });
 
@@ -289,6 +289,16 @@
   function clearError(){ el.setupError.hidden = true; }
 
   // ---------- mic / audio ----------
+  // Höhere Empfindlichkeit = niedrigere Schwelle. Pro Gerät gespeichert,
+  // weil Handy und Laptop sehr unterschiedlich laute Mikrofone haben.
+  var SENS_KEY = "vokalrennen_sensitivity";
+  function currentThreshold(){ return baseThreshold / sensitivity; }
+  try {
+    var savedSens = parseFloat(localStorage.getItem(SENS_KEY));
+    if(savedSens >= 0.5 && savedSens <= 4){ sensitivity = savedSens; }
+  } catch(e){}
+  el.sensSlider.value = String(sensitivity);
+
   function currentRMS(){
     analyser.getFloatTimeDomainData(timeData);
     var sum = 0;
@@ -361,10 +371,14 @@
     else { finishCalibration(); }
   }
   function finishCalibration(){
-    var avg = calibSamples.reduce(function(a,b){return a+b;},0) / Math.max(1,calibSamples.length);
-    noiseFloor = avg;
-    baseThreshold = clamp(avg*2 + 0.015, 0.018, 0.4);
-    gaugeMax = Math.max(0.22, baseThreshold*4);
+    // Schwelle nur relativ zum gemessenen Umgebungsgeräusch: Handy-Mikrofone liefern
+    // viel leisere Pegel als Laptops, ein fester Mindestwert war dort kaum erreichbar.
+    // 90. Perzentil statt Mittelwert, damit kurze Geräusche im Raum mitzählen.
+    var sorted = calibSamples.slice().sort(function(a,b){ return a-b; });
+    var noise = sorted.length ? sorted[Math.floor((sorted.length-1)*0.9)] : 0;
+    noiseFloor = noise;
+    baseThreshold = clamp(noise*2.5, 0.004, 0.4);
+    gaugeMax = baseThreshold*4;
     beginCountdownAndRace();
   }
 
@@ -448,7 +462,7 @@
   function updateRace(dt){
     var raw = currentRMS();
     smoothLevel = lerp(smoothLevel, raw, clamp(dt*6,0,1));
-    var thr = baseThreshold * sensitivity;
+    var thr = currentThreshold();
     var voicing = smoothLevel > thr;
 
     if(voicing){ silenceTimer = 0; streak += dt; }
@@ -746,9 +760,27 @@
     showScreen("screen-setup");
   });
 
-  el.settingsBtn.addEventListener("click", function(){ el.settingsBackdrop.hidden = false; });
+  // Live-Pegel in den Einstellungen, damit man die Empfindlichkeit am Gerät einstellen kann.
+  function updateLevelReadout(){
+    if(el.settingsBackdrop.hidden) return;
+    if(analyser){
+      var level = currentRMS();
+      el.levelReadout.textContent = "Pegel " + level.toFixed(4) + " · Schwelle " + currentThreshold().toFixed(4) +
+        (level > currentThreshold() ? " · aktiv" : "");
+    } else {
+      el.levelReadout.textContent = "Pegel erscheint nach dem ersten Start.";
+    }
+    requestAnimationFrame(updateLevelReadout);
+  }
+  el.settingsBtn.addEventListener("click", function(){
+    el.settingsBackdrop.hidden = false;
+    requestAnimationFrame(updateLevelReadout);
+  });
   el.closeSettingsBtn.addEventListener("click", function(){ el.settingsBackdrop.hidden = true; });
-  el.sensSlider.addEventListener("input", function(){ sensitivity = parseFloat(el.sensSlider.value); });
+  el.sensSlider.addEventListener("input", function(){
+    sensitivity = parseFloat(el.sensSlider.value);
+    try { localStorage.setItem(SENS_KEY, String(sensitivity)); } catch(e){}
+  });
   el.recalibBtn.addEventListener("click", function(){
     el.settingsBackdrop.hidden = true;
     if(!analyser){ return; }
