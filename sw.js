@@ -1,7 +1,7 @@
 // Service Worker: macht das Spiel offline spielbar und installierbar.
 // Bei jeder Änderung an Dateien der App VERSION erhöhen, damit die Geräte
 // die neue Version laden (alte Caches werden dann gelöscht).
-var VERSION = "v3";
+var VERSION = "v4";
 var APP_CACHE = "vokalrennen-app-" + VERSION;
 var FONT_CACHE = "vokalrennen-fonts";
 
@@ -37,14 +37,31 @@ self.addEventListener("install", function(event){
 });
 
 self.addEventListener("activate", function(event){
-  event.waitUntil(
-    caches.keys().then(function(keys){
-      return Promise.all(keys.map(function(key){
-        if(key !== APP_CACHE && key !== FONT_CACHE){ return caches.delete(key); }
-      }));
-    }).then(function(){ return self.clients.claim(); })
-  );
+  var updated = false;
+  var activation = caches.keys().then(function(keys){
+    return Promise.all(keys.map(function(key){
+      if(key !== APP_CACHE && key !== FONT_CACHE){ updated = true; return caches.delete(key); }
+    }));
+  }).then(function(){ return self.clients.claim(); });
+  event.waitUntil(activation);
+  // Only after activation has finished: the reloaded pages are served by this worker,
+  // and its fetch handler does not run until activation is complete.
+  activation.then(function(){ if(updated){ setTimeout(reloadNonGamePages, 0); } });
 });
+
+// Up to v2 the worker answered every page with the game, so a page like vokal-test.html
+// opened during the update shows the game. Reload those pages once the new worker is in
+// charge. Game pages are left alone so a running race is never interrupted.
+function reloadNonGamePages(){
+  var scope = new URL(self.registration.scope);
+  return self.clients.matchAll({ type: "window" }).then(function(clients){
+    return Promise.all(clients.map(function(client){
+      var path = new URL(client.url).pathname;
+      var isGame = path === scope.pathname || path === scope.pathname + "index.html";
+      if(!isGame && client.navigate){ return client.navigate(client.url).catch(function(){}); }
+    }));
+  });
+}
 
 // Safari lädt Videos mit Range-Requests; aus dem Cache muss dann ein 206 kommen.
 function rangeResponse(request, response){
