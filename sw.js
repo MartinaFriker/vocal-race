@@ -1,7 +1,7 @@
 // Service Worker: macht das Spiel offline spielbar und installierbar.
 // Bei jeder Änderung an Dateien der App VERSION erhöhen, damit die Geräte
 // die neue Version laden (alte Caches werden dann gelöscht).
-var VERSION = "v2";
+var VERSION = "v3";
 var APP_CACHE = "vokalrennen-app-" + VERSION;
 var FONT_CACHE = "vokalrennen-fonts";
 
@@ -10,6 +10,9 @@ var APP_FILES = [
   "index.html",
   "css/style.css",
   "js/app.js",
+  "vokal-test.html",
+  "js/vowel-analysis.js",
+  "js/vokal-test.js",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -88,12 +91,16 @@ self.addEventListener("fetch", function(event){
 
   if(url.origin !== self.location.origin) return;
 
-  // Seitenaufrufe immer mit der gespeicherten App-Seite beantworten.
+  // Pages: the cached copy of that page; unknown pages from the network,
+  // and the game as offline fallback.
   if(request.mode === "navigate"){
     event.respondWith(
-      caches.match("index.html", { cacheName: APP_CACHE })
-        .then(function(hit){ return hit || fetch(request); })
-        .catch(function(){ return fetch(request); })
+      caches.match(request, { cacheName: APP_CACHE, ignoreSearch: true }).then(function(hit){
+        if(hit) return hit;
+        return fetch(request).catch(function(){
+          return caches.match("index.html", { cacheName: APP_CACHE });
+        });
+      })
     );
     return;
   }

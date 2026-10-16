@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vokal-Test</title>
+<meta name="theme-color" content="#0a0b0e">
+<meta name="color-scheme" content="dark">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Karla:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .vt{max-width:640px; margin:0 auto; padding:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px)); display:flex; flex-direction:column; gap:14px;}
+  .vt-head{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .vt-head h1{font-size:26px;}
+  .vt-head a{color:var(--muted); font-size:14px;}
+  .panel{background:var(--raised); border:1px solid var(--line); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px;}
+  .vt .btn-primary{align-self:stretch; text-align:center;}
+
+  .big{display:flex; align-items:center; gap:16px;}
+  .big-letter{
+    width:120px; height:120px; flex:none; border-radius:22px; display:flex; align-items:center; justify-content:center;
+    font-family:Rajdhani; font-weight:700; font-size:88px; line-height:1; text-transform:uppercase;
+    background:rgba(255,255,255,.04); border:2px solid var(--line); color:var(--muted);
+    transition:background .12s, color .12s, border-color .12s;
+  }
+  .big-letter.is-sure{background:var(--signal); color:var(--signal-ink); border-color:var(--signal);}
+  .big-letter.is-unsure{color:var(--ink); border-color:var(--gold);}
+  .big-info{display:flex; flex-direction:column; gap:4px; min-width:0;}
+  .big-status{font-weight:700; font-size:16px;}
+  .big-formants{font-size:14px; color:var(--muted);}
+
+  .meter{position:relative; height:12px; border-radius:999px; background:rgba(0,0,0,.35); border:1px solid var(--line); overflow:hidden;}
+  .meter-fill{position:absolute; left:0; top:0; bottom:0; width:0; background:var(--muted);}
+  .meter-fill.is-active{background:var(--signal);}
+  .meter-thr{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--bad); left:25%;}
+
+  #chart{width:100%; aspect-ratio:4/3; display:block; border-radius:10px; background:#111318; border:1px solid var(--line);}
+  .hint{font-size:13px; color:var(--muted); line-height:1.45; margin:0;}
+
+  .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .row select, .row input[type="text"]{
+    flex:1 1 160px; min-height:44px; border-radius:10px; border:1px solid var(--line); background:#111318; color:var(--ink);
+    padding:0 12px; font:inherit; font-size:15px;
+  }
+  .calib-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:8px;}
+  .calib-btn{
+    min-height:64px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; padding:6px 2px;
+  }
+  .calib-btn b{font-family:Rajdhani; font-size:26px; line-height:1; text-transform:uppercase;}
+  .calib-btn small{font-size:10px; color:var(--muted); font-family:"IBM Plex Mono"; white-space:nowrap;}
+  .calib-btn.is-done{border-color:var(--good);}
+  .calib-btn.is-recording{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+  .calib-btn.is-recording small{color:var(--accent-ink);}
+  .calib-btn:disabled{opacity:.5; cursor:default;}
+
+  .stats{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; text-align:center;}
+  .stats div{background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:10px; padding:8px 2px;}
+  .stats b{display:block; font-family:Rajdhani; font-size:20px; text-transform:uppercase;}
+  .stats span{font-family:"IBM Plex Mono"; font-size:13px;}
+  .vt .btn-secondary{min-height:44px; padding:10px 16px;}
+</style>
+</head>
+<body>
+<main class="vt">
+  <div class="vt-head">
+    <h1>Vokal-Test</h1>
+    <a href="./">← zum Spiel</a>
+  </div>
+
+  <button class="btn-primary" id="micBtn" type="button">Mikrofon starten</button>
+  <p class="error-box" id="micError" hidden></p>
+
+  <section class="panel" aria-live="polite">
+    <div class="big">
+      <div class="big-letter" id="bigLetter">–</div>
+      <div class="big-info">
+        <span class="big-status" id="bigStatus">Mikrofon ist aus</span>
+        <span class="big-formants mono" id="bigFormants">F1 – · F2 –</span>
+      </div>
+    </div>
+    <div class="meter"><div class="meter-thr" id="meterThr"></div><div class="meter-fill" id="meterFill"></div></div>
+  </section>
+
+  <section class="panel">
+    <span class="field-label">Vokal-Karte</span>
+    <canvas id="chart"></canvas>
+    <p class="hint">Jeder Vokal hat seinen Platz auf der Karte. Der grüne Punkt zeigt, wo deine Stimme gerade liegt (F1 = Mundöffnung, F2 = Zunge vorne/hinten). Erkannt wird der Vokal am ganzen Klangbild, darum kann er auch richtig erkannt werden, wenn der Punkt fehlt oder springt.</p>
+  </section>
+
+  <section class="panel">
+    <span class="field-label">Vergleichswerte</span>
+    <div class="row">
+      <select id="profileSelect" aria-label="Vergleichswerte"></select>
+      <button class="btn-secondary" id="deleteProfileBtn" type="button">Löschen</button>
+    </div>
+    <p class="hint">Am genauesten wird es mit einem eigenen Profil: Name eingeben, dann jeden Vokal antippen und 2 Sekunden lang halten.</p>
+    <div class="row">
+      <input type="text" id="profileName" placeholder="Name (z. B. Lea)" maxlength="30" autocomplete="off">
+    </div>
+    <div class="calib-grid" id="calibGrid"></div>
+    <button class="btn-secondary" id="saveProfileBtn" type="button">Profil speichern</button>
+  </section>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between;">
+      <span class="field-label">Gehaltene Zeit pro Vokal</span>
+      <button class="btn-secondary" id="resetStatsBtn" type="button">Zurücksetzen</button>
+    </div>
+    <div class="stats" id="stats"></div>
+  </section>
+</main>
+
+<script src="js/vowel-analysis.js"></script>
+<script src="js/vokal-test.js"></script>
+</body>
+</html>
