@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vokal-Kart</title>
+<meta name="theme-color" content="#0a0b0e">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Karla:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  html,body{height:100%; overflow:hidden;}
+  #scene{position:fixed; inset:0; width:100%; height:100%; display:block; background:#7ec8f0;}
+
+  /* overlay screens (setup, calibration, result) */
+  .overlay{
+    position:fixed; inset:0; z-index:20; overflow-y:auto;
+    background:linear-gradient(180deg, rgba(10,11,14,.82), rgba(10,11,14,.94));
+    display:flex; justify-content:center;
+    padding:calc(18px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px));
+  }
+  .card{width:100%; max-width:560px; display:flex; flex-direction:column; gap:14px; margin:auto 0;}
+  .card h1{font-size:34px; font-style:italic;}
+  .card h1 span{color:var(--signal);}
+  .head{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
+  .head a{color:var(--muted); font-size:14px;}
+  .panel{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px;}
+  .vowel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:8px;}
+  .vowel-btn{
+    min-height:56px; border-radius:12px; border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.08); color:#fff;
+    font-family:Rajdhani; font-weight:700; font-size:26px; cursor:pointer;
+  }
+  .vowel-btn.is-active{background:var(--signal); color:var(--signal-ink); border-color:var(--signal); box-shadow:0 0 16px -4px var(--signal);}
+  .vowel-btn:disabled{opacity:.3; cursor:default;}
+  .pair-hint{font-size:13px; color:var(--muted); margin:0;}
+  .seg{display:flex; flex-wrap:wrap; gap:8px;}
+  select.pick{min-height:46px; border-radius:10px; border:1px solid rgba(255,255,255,.22); background:#15171c; color:#fff; padding:0 12px; font:inherit; font-size:15px;}
+  .card .btn-primary{
+    align-self:stretch; text-align:center; font-style:italic; font-size:18px; font-weight:800; min-height:58px; border-radius:16px;
+    background:linear-gradient(135deg, var(--signal), #8fe000); color:var(--signal-ink); box-shadow:0 10px 30px -10px rgba(200,255,61,.55);
+  }
+
+  .calib{align-items:center; text-align:center;}
+  .calib-vowel{
+    width:150px; height:150px; border-radius:50%; display:flex; align-items:center; justify-content:center; position:relative;
+    font-family:Rajdhani; font-weight:700; font-size:96px; text-transform:uppercase; border:8px solid rgba(255,255,255,.15);
+  }
+  .calib-vowel::before{
+    content:""; position:absolute; inset:-8px; border-radius:50%; border:8px solid var(--signal);
+    clip-path:inset(0 calc(100% - var(--p,0%)) 0 0);
+  }
+  .calib-side{font-family:Rajdhani; font-weight:700; font-size:20px; text-transform:uppercase; color:var(--muted);}
+
+  .result-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+  .result-list li{display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,.06);}
+  .result-list li.me{background:rgba(200,255,61,.18); border:1px solid var(--signal);}
+  .result-list b{font-family:Rajdhani; font-size:22px; width:28px;}
+  .result-list i{width:16px; height:16px; border-radius:4px; flex:none;}
+  .result-list span{flex:1;}
+  .result-head{font-family:Rajdhani; font-size:42px; font-weight:700; font-style:italic; text-transform:uppercase; text-align:center;}
+
+  /* in-race HUD */
+  .hud{position:fixed; inset:0; z-index:10; pointer-events:none; font-family:Rajdhani; color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.6);}
+  .hud-pos{position:absolute; left:calc(14px + env(safe-area-inset-left,0px)); top:calc(10px + env(safe-area-inset-top,0px)); line-height:1;}
+  .hud-pos b{font-size:64px; font-style:italic; font-weight:700;}
+  .hud-pos small{font-size:22px; font-weight:700; margin-left:2px;}
+  .hud-pos div{font-size:20px; font-weight:700; margin-top:4px; text-transform:uppercase;}
+  .hud-time{position:absolute; right:calc(64px + env(safe-area-inset-right,0px)); top:calc(18px + env(safe-area-inset-top,0px)); font-family:"IBM Plex Mono"; font-size:22px; font-weight:600;}
+  .hud-quit{
+    position:absolute; right:calc(12px + env(safe-area-inset-right,0px)); top:calc(12px + env(safe-area-inset-top,0px)); pointer-events:auto;
+    width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,.3); background:rgba(0,0,0,.35); color:#fff; font-size:18px; cursor:pointer;
+  }
+  .hud-steer{
+    position:absolute; left:50%; transform:translateX(-50%); bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    display:flex; align-items:center; gap:10px;
+  }
+  .steer-box{
+    min-width:70px; height:62px; padding:0 12px; border-radius:16px; display:flex; align-items:center; justify-content:center; gap:6px;
+    background:rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.25); font-size:34px; font-weight:700; text-transform:uppercase;
+    transition:background .08s, border-color .08s, color .08s;
+  }
+  .steer-box.is-on{background:var(--signal); border-color:var(--signal); color:var(--signal-ink); text-shadow:none;}
+  .steer-mid{min-width:62px; font-size:26px;}
+  .hud-level{position:absolute; left:50%; transform:translateX(-50%); bottom:calc(86px + env(safe-area-inset-bottom,0px)); width:220px; height:8px; border-radius:999px; background:rgba(0,0,0,.45); overflow:hidden;}
+  .hud-level i{display:block; height:100%; width:0; background:#fff;}
+  .hud-center{position:absolute; left:0; right:0; top:34%; text-align:center; font-size:72px; font-weight:700; font-style:italic; text-transform:uppercase; color:var(--signal);}
+  .hud-center.small{font-size:34px; color:#fff;}
+  @media (max-height:460px){
+    .hud-pos b{font-size:46px;}
+    .steer-box{height:50px; font-size:28px; min-width:58px;}
+    .hud-level{bottom:calc(72px + env(safe-area-inset-bottom,0px));}
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="hud-pos"><b id="hudPos">4</b><small id="hudOf">/4</small><div id="hudLap">Runde 1/2</div></div>
+  <div class="hud-time" id="hudTime">0:00.0</div>
+  <button class="hud-quit" id="quitBtn" type="button" aria-label="Rennen abbrechen">✕</button>
+  <div class="hud-level"><i id="hudLevel"></i></div>
+  <div class="hud-steer">
+    <div class="steer-box" id="steerLeft">◀ <span id="steerLeftV">A</span></div>
+    <div class="steer-box steer-mid" id="steerMid">▲</div>
+    <div class="steer-box" id="steerRight"><span id="steerRightV">I</span> ▶</div>
+  </div>
+  <div class="hud-center" id="hudCenter" hidden></div>
+</div>
+
+<!-- SETUP -->
+<section class="overlay" id="screenSetup">
+  <div class="card">
+    <div class="head"><h1>Vokal-<span>Kart</span></h1><a href="./">← zum Vokal-Rennen</a></div>
+    <div class="panel">
+      <span class="field-label">Vokal für links ◀</span>
+      <div class="vowel-row" id="leftRow"></div>
+      <span class="field-label">Vokal für rechts ▶</span>
+      <div class="vowel-row" id="rightRow"></div>
+      <p class="pair-hint" id="pairHint"></p>
+    </div>
+    <div class="panel">
+      <span class="field-label">Gegner</span>
+      <div class="seg" id="diffSeg"></div>
+    </div>
+    <div class="panel">
+      <span class="field-label">Stimme</span>
+      <select class="pick" id="profileSelect" aria-label="Stimme"></select>
+    </div>
+    <button class="btn-primary" id="startBtn" type="button">Mikrofon an &amp; los</button>
+    <p class="error-box" id="setupError" hidden></p>
+    <p class="pair-hint">Das Kart fährt von selbst. Mit dem einen Vokal lenkst du nach links, mit dem anderen nach rechts. Ohne Ton fährt es geradeaus. Auf dem Computer gehen auch die Pfeiltasten.</p>
+  </div>
+</section>
+
+<!-- CALIBRATION -->
+<section class="overlay" id="screenCalib" hidden>
+  <div class="card calib">
+    <div class="calib-side" id="calibSide">Kurz still sein …</div>
+    <div class="calib-vowel" id="calibVowel" style="--p:0%;">–</div>
+    <p class="pair-hint" id="calibHint">Wir messen kurz die Umgebung.</p>
+    <button class="btn-secondary" id="calibCancel" type="button">Abbrechen</button>
+  </div>
+</section>
+
+<!-- RESULT -->
+<section class="overlay" id="screenResult" hidden>
+  <div class="card">
+    <div class="result-head" id="resultHead">Platz 1!</div>
+    <div class="panel">
+      <ol class="result-list" id="resultList"></ol>
+      <p class="pair-hint" id="resultInfo"></p>
+    </div>
+    <button class="btn-primary" id="againBtn" type="button">Nochmal</button>
+    <button class="btn-secondary" id="menuBtn" type="button">Vokale / Gegner ändern</button>
+  </div>
+</section>
+
+<script src="js/vowel-analysis.js"></script>
+<script type="module" src="js/kart.js"></script>
+</body>
+</html>

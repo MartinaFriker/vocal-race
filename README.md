@@ -15,6 +15,14 @@ It is a web app (PWA). Once opened over HTTPS it can be added to the home screen
 | `manifest.webmanifest` | App name, colours and icons for installing |
 | `sw.js` | Service worker that caches everything for offline use |
 
+## Vokal-Kart (second game mode)
+
+`kart.html` is a 3D kart race (Three.js, loaded from jsDelivr and cached for offline use). The kart drives by itself; one chosen vowel steers left, another steers right, silence goes straight. Three computer karts race on the track and can be overtaken; 2 laps.
+
+- Before the race each of the two vowels is held for 2 seconds, or a saved profile from the vowel test page is used.
+- Opponent strength: Leicht / Mittel / Schwer. Arrow keys also steer (for testing on a computer).
+- Code: `js/kart.js`; vowel detection reuses `js/vowel-analysis.js`.
+
 ## Vowel test page
 
 `vokal-test.html` (open it directly, e.g. https://martinafriker.github.io/vocal-race/vokal-test.html) shows which vowel (A, E, I, O, U) the app hears, live, plus the first two formants on a vowel chart. It is a test bench for adding vowel recognition to the game.

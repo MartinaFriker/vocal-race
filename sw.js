@@ -1,9 +1,10 @@
 // Service Worker: macht das Spiel offline spielbar und installierbar.
 // Bei jeder Änderung an Dateien der App VERSION erhöhen, damit die Geräte
 // die neue Version laden (alte Caches werden dann gelöscht).
-var VERSION = "v4";
+var VERSION = "v5";
 var APP_CACHE = "vokalrennen-app-" + VERSION;
 var FONT_CACHE = "vokalrennen-fonts";
+var LIB_CACHE = "vokalrennen-libs";
 
 var APP_FILES = [
   "./",
@@ -13,6 +14,8 @@ var APP_FILES = [
   "vokal-test.html",
   "js/vowel-analysis.js",
   "js/vokal-test.js",
+  "kart.html",
+  "js/kart.js",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -40,7 +43,7 @@ self.addEventListener("activate", function(event){
   var updated = false;
   var activation = caches.keys().then(function(keys){
     return Promise.all(keys.map(function(key){
-      if(key !== APP_CACHE && key !== FONT_CACHE){ updated = true; return caches.delete(key); }
+      if(key !== APP_CACHE && key !== FONT_CACHE && key !== LIB_CACHE){ updated = true; return caches.delete(key); }
     }));
   }).then(function(){ return self.clients.claim(); });
   event.waitUntil(activation);
@@ -57,7 +60,7 @@ function reloadNonGamePages(){
   return self.clients.matchAll({ type: "window" }).then(function(clients){
     return Promise.all(clients.map(function(client){
       var path = new URL(client.url).pathname;
-      var isGame = path === scope.pathname || path === scope.pathname + "index.html";
+      var isGame = path === scope.pathname || path === scope.pathname + "index.html" || path === scope.pathname + "kart.html";
       if(!isGame && client.navigate){ return client.navigate(client.url).catch(function(){}); }
     }));
   });
@@ -98,6 +101,21 @@ self.addEventListener("fetch", function(event){
           if(hit) return hit;
           return fetch(request).then(function(res){
             if(res.ok || res.type === "opaque"){ cache.put(request, res.clone()); }
+            return res;
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  // 3D library from the CDN (pinned version): cache once for offline play.
+  if(url.hostname === "cdn.jsdelivr.net"){
+    event.respondWith(
+      caches.open(LIB_CACHE).then(function(cache){
+        return cache.match(request).then(function(hit){
+          return hit || fetch(request).then(function(res){
+            if(res.ok){ cache.put(request, res.clone()); }
             return res;
           });
         });
