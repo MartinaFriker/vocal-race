@@ -34,7 +34,7 @@ const PROFILES_KEY = "vokaltest_profiles"; // shared with the vowel test page
 const $ = (id) => document.getElementById(id);
 const el = {};
 ["scene","hud","hudPos","hudOf","hudLap","hudTime","quitBtn","hudLevel","steerLeft","steerMid","steerRight",
- "steerLeftV","steerRightV","hudCenter","screenSetup","leftRow","rightRow","pairHint","diffSeg","profileSelect",
+ "steerLeftV","steerRightV","hudCenter","hudMap","screenSetup","leftRow","rightRow","pairHint","diffSeg","profileSelect",
  "startBtn","keysBtn","setupError","screenCalib","calibSide","calibVowel","calibHint","calibCancel",
  "screenResult","resultHead","resultList","resultInfo","againBtn","menuBtn"].forEach((id) => { el[id] = $(id); });
 
@@ -373,11 +373,78 @@ function updateHud(){
   el.steerLeft.classList.toggle("is-on", s < -0.35);
   el.steerRight.classList.toggle("is-on", s > 0.35);
   el.steerMid.classList.toggle("is-on", Math.abs(s) <= 0.35 && state === "race");
+  drawMap();
   if (state === "race") {
     if (player.wrongWay) { showCenter("Falsche Richtung!", true); }
     else if (!player.finished) { el.hudCenter.hidden = true; }
   }
 }
+// ---------- track map ----------
+// North-up overview: track drawn once into an offscreen canvas, karts on top every frame.
+const map = { size: 0, dpr: 1, scale: 1, cx: 0, cz: 0, track: null, ctx: el.hudMap.getContext("2d") };
+let mapBounds = null;
+function mapPoint(x, z){
+  return [map.size / 2 + (x - map.cx) * map.scale, map.size / 2 + (z - map.cz) * map.scale];
+}
+function buildMap(){
+  const size = el.hudMap.clientWidth;
+  if (!size) return;
+  map.size = size;
+  map.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  el.hudMap.width = el.hudMap.height = Math.round(size * map.dpr);
+  if (!mapBounds) {
+    mapBounds = P.reduce((b, q) => ({ x0: Math.min(b.x0, q.x), x1: Math.max(b.x1, q.x), z0: Math.min(b.z0, q.z), z1: Math.max(b.z1, q.z) }),
+      { x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity });
+  }
+  const pad = 14, w = mapBounds.x1 - mapBounds.x0, h = mapBounds.z1 - mapBounds.z0;
+  map.scale = (size - 2 * pad) / Math.max(w, h);
+  map.cx = (mapBounds.x0 + mapBounds.x1) / 2; map.cz = (mapBounds.z0 + mapBounds.z1) / 2;
+
+  const off = document.createElement("canvas");
+  off.width = off.height = el.hudMap.width;
+  const g = off.getContext("2d");
+  g.scale(map.dpr, map.dpr);
+  g.lineJoin = g.lineCap = "round";
+  const path = () => { g.beginPath(); P.forEach((q, i) => { const [x, y] = mapPoint(q.x, q.z); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath(); };
+  path(); g.strokeStyle = "rgba(255,255,255,.9)"; g.lineWidth = 7; g.stroke();
+  path(); g.strokeStyle = "#4a4f5a"; g.lineWidth = 4; g.stroke();
+  // finish line: small checkered bar across the track
+  const st = sampleAt(START_LINE_S), [fx, fy] = mapPoint(st.pos.x, st.pos.z);
+  g.save(); g.translate(fx, fy); g.rotate(Math.atan2(st.left.z, st.left.x));
+  for (let k = -3; k < 3; k++) for (let r = 0; r < 2; r++) {
+    g.fillStyle = (k + r) % 2 ? "#111" : "#fff"; g.fillRect(k * 2, -2 + r * 2, 2, 2);
+  }
+  g.restore();
+  map.track = off;
+}
+window.addEventListener("resize", () => { map.size = 0; });
+function drawMap(){
+  if (el.hudMap.clientWidth !== map.size) buildMap();
+  if (!map.track) return;
+  const g = map.ctx;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, el.hudMap.width, el.hudMap.height);
+  g.drawImage(map.track, 0, 0);
+  g.setTransform(map.dpr, 0, 0, map.dpr, 0, 0);
+  ais.forEach((a) => {
+    const [x, y] = mapPoint(a.mesh.position.x, a.mesh.position.z);
+    g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2);
+    g.fillStyle = "#" + a.color.toString(16).padStart(6, "0"); g.fill();
+    g.lineWidth = 1.5; g.strokeStyle = "#fff"; g.stroke();
+  });
+  // player: arrow in driving direction, drawn last so it stays on top
+  const [px, py] = mapPoint(player.pos.x, player.pos.z);
+  const fx = Math.sin(player.heading), fy = Math.cos(player.heading);
+  g.beginPath();
+  g.moveTo(px + fx * 8, py + fy * 8);
+  g.lineTo(px - fx * 5 + fy * 5.5, py - fy * 5 - fx * 5.5);
+  g.lineTo(px - fx * 2.5, py - fy * 2.5);
+  g.lineTo(px - fx * 5 - fy * 5.5, py - fy * 5 + fx * 5.5);
+  g.closePath();
+  g.fillStyle = "#e8202a"; g.fill();
+  g.lineWidth = 1.8; g.strokeStyle = "#fff"; g.stroke();
+}
+
 function showCenter(text, small){
   el.hudCenter.textContent = text;
   el.hudCenter.classList.toggle("small", !!small);

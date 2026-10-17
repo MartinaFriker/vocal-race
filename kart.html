@@ -92,7 +92,16 @@
   .hud-level i{display:block; height:100%; width:0; background:#fff;}
   .hud-center{position:absolute; left:0; right:0; top:34%; text-align:center; font-size:72px; font-weight:700; font-style:italic; text-transform:uppercase; color:var(--signal);}
   .hud-center.small{font-size:34px; color:#fff;}
+  /* track map: bottom right when the phone is sideways, top right below the time when upright */
+  .hud-map{
+    position:absolute; width:150px; height:150px; right:calc(12px + env(safe-area-inset-right,0px)); bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    border-radius:16px; background:rgba(10,11,14,.28); border:1px solid rgba(255,255,255,.18);
+  }
+  @media (orientation:portrait){
+    .hud-map{bottom:auto; top:calc(62px + env(safe-area-inset-top,0px)); width:130px; height:130px;}
+  }
   @media (max-height:460px){
+    .hud-map{width:120px; height:120px;}
     .hud-pos b{font-size:46px;}
     .steer-box{height:50px; font-size:28px; min-width:58px;}
     .hud-level{bottom:calc(72px + env(safe-area-inset-bottom,0px));}
@@ -113,6 +122,7 @@
     <div class="steer-box" id="steerRight"><span id="steerRightV">I</span> ▶</div>
   </div>
   <div class="hud-center" id="hudCenter" hidden></div>
+  <canvas class="hud-map" id="hudMap" aria-label="Streckenplan"></canvas>
 </div>
 
 <!-- SETUP -->
