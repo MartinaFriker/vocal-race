@@ -1,7 +1,7 @@
 // Service Worker: macht das Spiel offline spielbar und installierbar.
 // Bei jeder Änderung an Dateien der App VERSION erhöhen, damit die Geräte
 // die neue Version laden (alte Caches werden dann gelöscht).
-var VERSION = "v7";
+var VERSION = "v10";
 var APP_CACHE = "vokalrennen-app-" + VERSION;
 var FONT_CACHE = "vokalrennen-fonts";
 var LIB_CACHE = "vokalrennen-libs";
@@ -28,6 +28,7 @@ var APP_FILES = [
   "assets/tracks/monaco.jpg",
   "assets/tracks/nurburgring.jpg",
   "assets/tracks/monza.jpg",
+  "assets/kart-card.jpg",
   "assets/intro.mp4"
 ];
 

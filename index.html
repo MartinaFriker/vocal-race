@@ -28,11 +28,28 @@
 <button class="btn-icon settings-fab" id="settingsBtn" aria-label="Einstellungen" type="button">&#9881;</button>
 
 <div id="app">
-  <!-- SETUP -->
-  <section class="screen" id="screen-setup">
-    <div class="track-grid" id="trackGrid"></div>
-
+  <!-- HOME: car and game choice -->
+  <section class="screen" id="screen-home">
+    <h2 class="home-title">Wähle dein Auto</h2>
     <div class="car-grid" id="carGrid"></div>
+
+    <h2 class="home-title">Wähle ein Spiel</h2>
+    <div class="game-grid">
+      <button class="game-card" id="gameRace" type="button" style="background-image:linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.72)), url('assets/tracks/monaco.jpg');">
+        <span class="game-name">Vokal-Rennen</span>
+        <span class="game-sub">Einen Vokal lange halten – je länger, desto schneller</span>
+      </button>
+      <button class="game-card" id="gameKart" type="button" style="background-image:linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.72)), url('assets/kart-card.jpg');">
+        <span class="game-name">Vokal-Kart</span>
+        <span class="game-sub">Mit zwei Vokalen nach links und rechts lenken</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- SETUP (Vokal-Rennen) -->
+  <section class="screen" id="screen-setup" hidden>
+    <button class="back-link" id="backHomeBtn" type="button">← Spielauswahl</button>
+    <div class="track-grid" id="trackGrid"></div>
 
     <div class="seg" id="diffSeg"></div>
 

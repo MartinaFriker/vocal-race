@@ -60,7 +60,10 @@
 
   // ---------- state ----------
   var selectedTrack = "monaco";
+  // The chosen car is shared with Vokal-Kart (its kart takes the car's colour).
+  var CAR_KEY = "vokalrennen_car";
   var selectedCar = "ferrari";
+  try { var savedCar = localStorage.getItem(CAR_KEY); if(savedCar){ selectedCar = savedCar; } } catch(e){}
   var selectedDifficulty = "easy";
   var sensitivity = 1;
   var reducedMotion = false;
@@ -80,7 +83,7 @@
   // ---------- elements ----------
   var el = {};
   ["trackGrid","carGrid","diffSeg","bestTimeLine","startBtn","setupError",
-   "screen-setup","screen-calibrate","screen-race","screen-result",
+   "screen-home","screen-setup","screen-calibrate","screen-race","screen-result","gameRace","gameKart","backHomeBtn",
    "calibRing","calibPct","calibLabel","calibCancel",
    "raceCanvas","countdownOverlay","countdownNum","cheer",
    "speedVal","streakVal","distVal","meterState","meterFill","meterThreshold",
@@ -100,15 +103,20 @@
   // zur Auswahlseite über. Mehrere Sicherheitsnetze, falls "ended" nie feuert
   // (Autoplay blockiert, Decode-Fehler, o.ä.), damit die App nie hinter dem
   // Intro hängen bleibt.
+  // Played once per visit: coming back from Vokal-Kart goes straight to the game choice.
+  var INTRO_SEEN_KEY = "vokalrennen_intro_seen";
   (function initIntro(){
     var overlay = el.introOverlay, video = el.introVideo;
-    if(!overlay || !video || typeof INTRO_VIDEO === "undefined"){ if(overlay) overlay.hidden = true; return; }
+    var seen = false;
+    try { seen = sessionStorage.getItem(INTRO_SEEN_KEY) === "1"; } catch(e){}
+    if(!overlay || !video || typeof INTRO_VIDEO === "undefined" || seen){ if(overlay) overlay.hidden = true; return; }
     video.muted = true;
     var done = false, objectUrl = null;
     function finishIntro(){
       if(done) return;
       done = true;
       overlay.hidden = true;
+      try { sessionStorage.setItem(INTRO_SEEN_KEY, "1"); } catch(e){}
       try{ video.pause(); video.removeAttribute("src"); video.load(); }catch(e){}
       if(objectUrl){ URL.revokeObjectURL(objectUrl); }
     }
@@ -151,14 +159,14 @@
     return m>0 ? (m+":"+(sec<10?"0":"")+sec.toFixed(1)) : sec.toFixed(1)+"s";
   }
   function showScreen(id){
-    ["screen-setup","screen-calibrate","screen-race","screen-result"].forEach(function(s){
+    ["screen-home","screen-setup","screen-calibrate","screen-race","screen-result"].forEach(function(s){
       el[s].hidden = (s!==id);
     });
-    // Ein Verlaufseintrag für "im Spiel", damit die Zurück-Taste (Android)
-    // zur Auswahl führt statt die App zu schließen.
+    // One history entry for everything past the home screen, so the Android back
+    // button returns to the game choice instead of closing the app.
     var inGame = history.state && history.state.vokalrennen;
-    if(id!=="screen-setup" && !inGame){ history.pushState({ vokalrennen:true }, ""); }
-    else if(id==="screen-setup" && inGame){ history.back(); }
+    if(id!=="screen-home" && !inGame){ history.pushState({ vokalrennen:true }, ""); }
+    else if(id==="screen-home" && inGame){ history.back(); }
   }
 
   // ---------- mobile: Bildschirm anlassen ----------
@@ -253,6 +261,7 @@
 
       card.addEventListener("click", function(){
         selectedCar = key;
+        try { localStorage.setItem(CAR_KEY, key); } catch(e){}
         buildCarGrid();
       });
       el.carGrid.appendChild(card);
@@ -816,20 +825,32 @@
     }
   });
   window.addEventListener("popstate", function(){
-    if(el["screen-setup"].hidden){
+    if(el["screen-home"].hidden){
       abortGame();
       el.settingsBackdrop.hidden = true;
-      showScreen("screen-setup");
+      showScreen("screen-home");
     }
   });
 
+  // ---------- game choice ----------
+  el.gameRace.addEventListener("click", function(){
+    clearError();
+    showScreen("screen-setup");
+  });
+  el.gameKart.addEventListener("click", function(){
+    try { sessionStorage.setItem(INTRO_SEEN_KEY, "1"); } catch(e){}
+    location.href = "kart.html";
+  });
+  el.backHomeBtn.addEventListener("click", function(){ showScreen("screen-home"); });
+
   // ---------- boot ----------
   function init(){
+    if(!CARS[selectedCar]){ selectedCar = "ferrari"; }
     buildTrackGrid();
     buildCarGrid();
     buildDiffSeg();
     updateBestLine();
-    showScreen("screen-setup");
+    showScreen("screen-home");
   }
   init();
 

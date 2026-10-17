@@ -60,14 +60,32 @@
   .screen{flex:1 1 auto; display:flex; flex-direction:column; gap:18px; padding:20px calc(20px + env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) calc(20px + env(safe-area-inset-left,0px));}
   .screen.center{align-items:center; justify-content:center; text-align:center;}
 
-  #screen-setup{
+  #screen-setup, #screen-home{
     --raised:rgba(255,255,255,.10); --line:rgba(255,255,255,.28);
     padding-top:calc(74px + env(safe-area-inset-top,0px)); gap:14px;
   }
   /* Autokarten: eigenes helles Panel (unabhängig vom dunklen Anthrazit-Hintergrund),
      damit dunkle Autos (Audi, Lamborghini) nicht mit dem Hintergrund verschmelzen. */
-  #screen-setup .car-card{background:rgba(238,239,233,.96); border-color:rgba(0,0,0,.10); color:#171a1f;}
-  #screen-setup .car-card[data-selected="true"]{background:#fff;}
+  #screen-home .car-card{background:rgba(238,239,233,.96); border-color:rgba(0,0,0,.10); color:#171a1f;}
+  #screen-home .car-card[data-selected="true"]{background:#fff;}
+
+  /* home screen: game choice */
+  .home-title{font-size:18px; letter-spacing:.06em; color:rgba(255,255,255,.85); margin-top:4px;}
+  .game-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px;}
+  .game-card{
+    position:relative; min-height:150px; border-radius:18px; border:1px solid rgba(255,255,255,.2); cursor:pointer;
+    display:flex; flex-direction:column; justify-content:flex-end; gap:4px; padding:18px; text-align:left; color:#fff;
+    background-color:#15171c; background-size:cover; background-position:center; background-repeat:no-repeat;
+    box-shadow:0 10px 30px -14px rgba(0,0,0,.8); transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .game-card:active{transform:translateY(1px) scale(.99);}
+  .game-card:hover, .game-card:focus-visible{border-color:var(--signal); box-shadow:0 0 0 2px var(--signal) inset, 0 0 24px -6px var(--signal);}
+  .game-name{font-family:Rajdhani; font-weight:700; font-style:italic; font-size:28px; text-transform:uppercase; text-shadow:0 2px 6px rgba(0,0,0,.8);}
+  .game-sub{font-size:13.5px; line-height:1.35; color:rgba(255,255,255,.9); text-shadow:0 1px 4px rgba(0,0,0,.85);}
+  .back-link{
+    align-self:flex-start; background:none; border:none; color:rgba(255,255,255,.8); font:inherit; font-size:15px; font-weight:700;
+    padding:6px 0; cursor:pointer;
+  }
   #screen-setup .lead{
     color:rgba(255,255,255,.88); max-width:60ch; font-size:13.5px; line-height:1.45; margin:0 0 4px;
     background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16);

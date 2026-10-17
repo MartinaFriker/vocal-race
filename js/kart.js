@@ -22,7 +22,21 @@ const OPPONENTS = [
   { name: "Grün",  color: 0x2fbf5a, helmet: 0xffd23f, lane: -4.5, start: 10, pace: 0.97 },
   { name: "Gelb",  color: 0xf2c230, helmet: 0x333333, lane: 4.5,  start: 6,  pace: 0.94 },
 ];
-const PLAYER_COLOR = 0xe8202a;
+// Kart colour follows the car chosen on the start screen (same colours as the car cards).
+const CAR_COLORS = { audi: 0x8a9099, lambo: 0x1e3f8f, bugatti: 0x4fb3e0, ferrari: 0xd21f3c };
+let carKey = "ferrari";
+try { carKey = localStorage.getItem("vokalrennen_car") || carKey; } catch (e) {}
+const PLAYER_COLOR = CAR_COLORS[carKey] || CAR_COLORS.ferrari;
+// An opponent that looks too much like the player gets another colour.
+const SPARE_COLORS = [{ name: "Orange", color: 0xff8c1a }, { name: "Lila", color: 0x9b4dca }];
+// Distance of two hex colours as they look on screen (sRGB, 0..1 per channel).
+function colorDistance(a, b){
+  const ch = (c, s) => ((c >> s) & 255) / 255;
+  return Math.hypot(ch(a, 16) - ch(b, 16), ch(a, 8) - ch(b, 8), ch(a, 0) - ch(b, 0));
+}
+OPPONENTS.forEach((o) => {
+  if (colorDistance(o.color, PLAYER_COLOR) < 0.45) Object.assign(o, SPARE_COLORS.shift());
+});
 const SURE_CONFIDENCE = 0.12;   // two-vowel decision: nearest must be clearly closer
 const HISTORY_MS = 160;
 const CALIB_SECONDS = 2;
@@ -441,7 +455,7 @@ function drawMap(){
   g.lineTo(px - fx * 2.5, py - fy * 2.5);
   g.lineTo(px - fx * 5 - fy * 5.5, py - fy * 5 + fx * 5.5);
   g.closePath();
-  g.fillStyle = "#e8202a"; g.fill();
+  g.fillStyle = "#" + PLAYER_COLOR.toString(16).padStart(6, "0"); g.fill();
   g.lineWidth = 1.8; g.strokeStyle = "#fff"; g.stroke();
 }
 
