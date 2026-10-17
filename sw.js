@@ -1,7 +1,7 @@
 // Service Worker: macht das Spiel offline spielbar und installierbar.
 // Bei jeder Änderung an Dateien der App VERSION erhöhen, damit die Geräte
 // die neue Version laden (alte Caches werden dann gelöscht).
-var VERSION = "v10";
+var VERSION = "v13";
 var APP_CACHE = "vokalrennen-app-" + VERSION;
 var FONT_CACHE = "vokalrennen-fonts";
 var LIB_CACHE = "vokalrennen-libs";

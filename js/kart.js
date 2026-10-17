@@ -19,8 +19,8 @@ const DIFFICULTIES = [
 ];
 const OPPONENTS = [
   { name: "Blau",  color: 0x2f6fe0, helmet: 0xffffff, lane: 4.5,  start: 14, pace: 1.00 },
-  { name: "Grün",  color: 0x2fbf5a, helmet: 0xffd23f, lane: -4.5, start: 10, pace: 0.97 },
-  { name: "Gelb",  color: 0xf2c230, helmet: 0x333333, lane: 4.5,  start: 6,  pace: 0.94 },
+  { name: "Grün",  color: 0x2fbf5a, helmet: 0xffd23f, lane: -4.5, start: 10, pace: 0.99 },
+  { name: "Gelb",  color: 0xf2c230, helmet: 0x333333, lane: 4.5,  start: 6,  pace: 0.98 },
 ];
 // Kart colour follows the car chosen on the start screen (same colours as the car cards).
 const CAR_COLORS = { audi: 0x8a9099, lambo: 0x1e3f8f, bugatti: 0x4fb3e0, ferrari: 0xd21f3c };
@@ -48,7 +48,7 @@ const PROFILES_KEY = "vokaltest_profiles"; // shared with the vowel test page
 const $ = (id) => document.getElementById(id);
 const el = {};
 ["scene","hud","hudPos","hudOf","hudLap","hudTime","quitBtn","hudLevel","steerLeft","steerMid","steerRight",
- "steerLeftV","steerRightV","hudCenter","hudMap","screenSetup","leftRow","rightRow","pairHint","diffSeg","profileSelect",
+ "steerLeftV","steerRightV","hudCenter","hudMap","finishBanner","screenSetup","leftRow","rightRow","pairHint","diffSeg","profileSelect",
  "startBtn","keysBtn","setupError","screenCalib","calibSide","calibVowel","calibHint","calibCancel",
  "screenResult","resultHead","resultList","resultInfo","againBtn","menuBtn"].forEach((id) => { el[id] = $(id); });
 
@@ -123,7 +123,8 @@ buildWorld();
 function buildWorld(){
   // grass
   const grass = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshLambertMaterial({ color: 0x6cc24a }));
-  grass.rotation.x = -Math.PI / 2; grass.position.y = -0.02;
+  // well below the road: with a low camera a 2 cm gap made the grass flicker through
+  grass.rotation.x = -Math.PI / 2; grass.position.y = -0.25;
   scene.add(grass);
 
   // road, curbs: strips along the samples
@@ -241,7 +242,8 @@ function makeKart(color, helmet){
 const player = { mesh: makeKart(PLAYER_COLOR, 0xffffff), pos: new THREE.Vector3(), heading: 0, speed: 0, steer: 0,
   idx: 0, lap: 0, progress: 0, finished: false, finishTime: 0, name: "Du", color: PLAYER_COLOR };
 const ais = OPPONENTS.map((o) => ({ ...o, mesh: makeKart(o.color, o.helmet), s: 0, offset: 0, targetOffset: 0, speed: 0,
-  finished: false, finishTime: 0, wobble: Math.random() * 10 }));
+  finished: false, finishTime: 0, form: 1, formTarget: 1, formTimer: 0, lane0: o.lane, laneTimer: 0 }));
+const LANES = [-4.5, 0, 4.5];
 
 // ---------- race state ----------
 let state = "setup";      // setup | calib | countdown | race | result
@@ -258,7 +260,14 @@ function resetRace(){
   player.pos.copy(sp.pos); player.heading = Math.atan2(sp.tan.x, sp.tan.z);
   player.speed = 0; player.steer = 0; player.idx = 2; player.lap = 0; player.finished = false;
   player.progress = 2;
-  ais.forEach((a) => { a.s = a.start; a.offset = a.lane; a.targetOffset = a.lane; a.speed = 0; a.finished = false; });
+  ais.forEach((a) => {
+    a.lane = a.lane0; a.s = a.start; a.offset = a.lane; a.targetOffset = a.lane; a.speed = 0; a.finished = false;
+    a.form = 1; a.formTarget = 1; a.formTimer = 2 + Math.random() * 3; a.laneTimer = 3 + Math.random() * 4;
+  });
+  clearFireworks();
+  finishCam = false;
+  el.hud.classList.remove("is-finished");
+  el.finishBanner.hidden = true;
   placeKarts();
 }
 
@@ -277,14 +286,15 @@ function placeKarts(){
 function update(dt){
   // steering input: keyboard wins, otherwise the voice
   const keySteer = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
-  const target = keySteer !== 0 ? keySteer : voiceSteer;
+  let target = keySteer !== 0 ? keySteer : voiceSteer;
+  if (player.finished) target = autopilotSteer(); // victory lap: the kart steers itself
   player.steer += (target - player.steer) * Math.min(1, dt * 7);
 
   // player physics
   const near = nearestIndex(player.pos, player.idx);
   const lateral = player.pos.clone().sub(P[near]).dot(LEFT[near]);
   const onRoad = Math.abs(lateral) <= ROAD_WIDTH / 2 + 0.6;
-  const targetSpeed = state === "race" && !player.finished ? BASE_SPEED * (onRoad ? 1 : OFFROAD_FACTOR) : (player.finished ? BASE_SPEED * 0.5 : 0);
+  const targetSpeed = state === "race" && !player.finished ? BASE_SPEED * (onRoad ? 1 : OFFROAD_FACTOR) : (player.finished ? BASE_SPEED * 0.6 : 0);
   player.speed += (targetSpeed - player.speed) * Math.min(1, dt * (targetSpeed > player.speed ? 1.2 : 2.5));
   // steer right = clockwise from above; heading grows to the left
   player.heading -= player.steer * TURN_RATE * dt * Math.min(1, player.speed / 6);
@@ -306,7 +316,7 @@ function update(dt){
     raceTime += dt;
     if (!player.finished && player.progress >= LAPS * TRACK_LENGTH + START_LINE_S) {
       player.finished = true; player.finishTime = raceTime; finishOrder.push(player);
-      setTimeout(showResult, 1600);
+      startCelebration();
     }
   }
 
@@ -316,7 +326,24 @@ function update(dt){
       // gentle rubber band: keeps the field together so overtaking stays possible
       const gap = a.s - player.progress;
       const band = THREE.MathUtils.clamp(-gap / 120, -0.08, 0.08);
-      const want = a.finished ? BASE_SPEED * 0.5 : BASE_SPEED * aiFactor * a.pace * (1 + band) * (1 + 0.03 * Math.sin(raceTime * 0.7 + a.wobble));
+      // each kart has a "form" that changes every few seconds: it pushes for a while,
+      // catches up, then drops back again, so the karts are never equally fast
+      a.formTimer -= dt;
+      if (a.formTimer <= 0) {
+        a.formTarget = 0.84 + Math.random() * 0.36;   // 0.84 .. 1.20
+        a.formTimer = 2.5 + Math.random() * 4.5;
+      }
+      a.form += (a.formTarget - a.form) * Math.min(1, dt * 0.9);
+      // and now and then it moves to another lane
+      a.laneTimer -= dt;
+      if (a.laneTimer <= 0) {
+        a.lane = LANES[Math.floor(Math.random() * LANES.length)];
+        a.laneTimer = 4 + Math.random() * 6;
+      }
+      // slight pull towards the other opponents, so the group stays close and keeps swapping places
+      const mean = ais.reduce((sum, b) => sum + b.s, 0) / ais.length;
+      const pack = THREE.MathUtils.clamp(-(a.s - mean) / 90, -0.07, 0.07);
+      const want = a.finished ? BASE_SPEED * 0.6 : BASE_SPEED * aiFactor * a.pace * a.form * (1 + band + pack);
       a.speed += (want - a.speed) * Math.min(1, dt * 1.0);
     } else { a.speed = 0; }
     a.s += a.speed * dt;
@@ -348,6 +375,84 @@ function update(dt){
   placeKarts();
 }
 
+function autopilotSteer(){
+  const ahead = P[(player.idx + 14) % N];
+  let err = Math.atan2(ahead.x - player.pos.x, ahead.z - player.pos.z) - player.heading;
+  err = Math.atan2(Math.sin(err), Math.cos(err));
+  return THREE.MathUtils.clamp(-err * 2.5, -1, 1);
+}
+
+// ---------- finish celebration ----------
+let finishCam = false, celebrateUntil = 0, nextBurst = 0;
+// soft round spark: bright core with a glow, so it reads against the bright sky
+const sparkTexture = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const g = c.getContext("2d"), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,255,255,1)"); grad.addColorStop(0.25, "rgba(255,255,255,.95)");
+  grad.addColorStop(0.5, "rgba(255,255,255,.45)"); grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const bursts = [];
+function startCelebration(){
+  finishCam = true;
+  celebrateUntil = raceTime + 4;
+  nextBurst = raceTime;
+  el.hudCenter.hidden = true;
+  el.finishBanner.hidden = false;
+  el.finishBanner.classList.remove("is-pop");
+  void el.finishBanner.offsetWidth; // restart the CSS animation
+  el.finishBanner.classList.add("is-pop");
+  el.hud.classList.add("is-finished");
+  setTimeout(showResult, 4200);
+}
+function spawnBurst(){
+  // placed in the camera's view (far behind the kart, left or right of the banner),
+  // so the bursts are always in the picture even while the kart drives through a curve
+  const view = new THREE.Vector3(); camera.getWorldDirection(view); view.y = 0; view.normalize();
+  const right = new THREE.Vector3(-view.z, 0, view.x);
+  const center = camera.position.clone().addScaledVector(view, 38 + Math.random() * 18)
+    .addScaledVector(right, (Math.random() < 0.5 ? -1 : 1) * (9 + Math.random() * 16)).setY(7 + Math.random() * 9);
+  const count = 160, pos = new Float32Array(count * 3), col = new Float32Array(count * 3), vel = [];
+  const hue = Math.random(), c = new THREE.Color();
+  for (let i = 0; i < count; i++) {
+    pos.set([center.x, center.y, center.z], i * 3);
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(8 + Math.random() * 4);
+    vel.push(v);
+    c.setHSL((hue + (Math.random() < 0.25 ? 0.5 : 0) + (Math.random() - 0.5) * 0.06) % 1, 1, 0.55);
+    col.set([c.r, c.g, c.b], i * 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.PointsMaterial({ size: 4.4, map: sparkTexture, vertexColors: true, transparent: true, depthWrite: false, alphaTest: 0.01 });
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+  bursts.push({ points, vel, age: 0 });
+}
+function updateFireworks(dt){
+  if (finishCam && raceTime < celebrateUntil && raceTime >= nextBurst) {
+    spawnBurst();
+    if (Math.random() < 0.4) spawnBurst();
+    nextBurst = raceTime + 0.28 + Math.random() * 0.25;
+  }
+  for (let b = bursts.length - 1; b >= 0; b--) {
+    const burst = bursts[b], arr = burst.points.geometry.attributes.position.array;
+    burst.age += dt;
+    burst.vel.forEach((v, i) => {
+      v.y -= 7 * dt; v.multiplyScalar(1 - 1.2 * dt);
+      arr[i * 3] += v.x * dt; arr[i * 3 + 1] += v.y * dt; arr[i * 3 + 2] += v.z * dt;
+    });
+    burst.points.geometry.attributes.position.needsUpdate = true;
+    burst.points.material.opacity = Math.max(0, 1 - burst.age / 1.8);
+    if (burst.age > 1.8) { scene.remove(burst.points); burst.points.geometry.dispose(); burst.points.material.dispose(); bursts.splice(b, 1); }
+  }
+}
+function clearFireworks(){
+  bursts.splice(0).forEach((b) => { scene.remove(b.points); b.points.geometry.dispose(); b.points.material.dispose(); });
+}
+
 function nearestIndex(pos, from){
   let best = from, bestD = Infinity;
   for (let k = -25; k <= 60; k++) {
@@ -362,9 +467,23 @@ function nearestIndex(pos, from){
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 function updateCamera(dt, snap){
   const fwd = new THREE.Vector3(Math.sin(player.heading), 0, Math.cos(player.heading));
-  const wantPos = player.pos.clone().addScaledVector(fwd, -7.5).setY(3.4);
-  const wantLook = player.pos.clone().addScaledVector(fwd, 6).setY(1.2);
-  const k = snap ? 1 : Math.min(1, dt * 5);
+  let wantPos, wantLook, k;
+  if (finishCam) {
+    // like the finish shot in kart games: the camera circles round the kart to its front
+    // (an orbit instead of a straight move, which would fly through the kart)
+    const left = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    const t = Math.min(1, (raceTime - player.finishTime) / 1.6), ease = t * t * (3 - 2 * t);
+    const a = Math.PI + (0.45 - Math.PI) * ease; // from behind (pi) to front-left
+    const dir = fwd.clone().multiplyScalar(Math.cos(a)).addScaledVector(left, Math.sin(a));
+    camPos.copy(player.pos).addScaledVector(dir, 7.5).setY(3.4 - 1.0 * ease);
+    camLook.copy(player.pos).setY(1.2 + 1.4 * ease);
+    camera.position.copy(camPos); camera.lookAt(camLook);
+    return;
+  } else {
+    wantPos = player.pos.clone().addScaledVector(fwd, -7.5).setY(3.4);
+    wantLook = player.pos.clone().addScaledVector(fwd, 6).setY(1.2);
+    k = snap ? 1 : Math.min(1, dt * 5);
+  }
   camPos.lerp(wantPos, k); camLook.lerp(wantLook, k);
   camera.position.copy(camPos); camera.lookAt(camLook);
 }
@@ -389,7 +508,8 @@ function updateHud(){
   el.steerMid.classList.toggle("is-on", Math.abs(s) <= 0.35 && state === "race");
   drawMap();
   if (state === "race") {
-    if (player.wrongWay) { showCenter("Falsche Richtung!", true); }
+    if (player.finished) { /* the finish banner is showing */ }
+    else if (player.wrongWay) { showCenter("Falsche Richtung!", true); }
     else if (!player.finished) { el.hudCenter.hidden = true; }
   }
 }
@@ -476,7 +596,7 @@ function frame(now){
     showCenter(n > 0 ? String(n) : "Los!");
     if (countdown <= 0) { state = "race"; setTimeout(() => { if (state === "race" && !player.wrongWay) el.hudCenter.hidden = true; }, 700); }
   }
-  if (state === "countdown" || state === "race" || state === "result") { updateVoice(now); update(dt); }
+  if (state === "countdown" || state === "race" || state === "result") { updateVoice(now); update(dt); updateFireworks(dt); }
   else { idleCamera(now); }
   if (state !== "setup" && state !== "calib") updateCamera(dt, false);
   if (state === "countdown" || state === "race") updateHud();
@@ -643,14 +763,21 @@ function beginCountdown(){
   requestWakeLock();
 }
 function showResult(){
+  if (state !== "race" || !player.finished) return; // race was quit or restarted meanwhile
   state = "result";
   releaseWakeLock();
-  const order = ranking();
-  const place = order.indexOf(player) + 1;
+  el.finishBanner.hidden = true;
+  // Opponents still on the track get the time they will reach at their current pace.
+  const finishS = LAPS * TRACK_LENGTH + START_LINE_S;
+  const rows = [player, ...ais].map((r) => ({
+    r,
+    time: r.finished ? r.finishTime : raceTime + (finishS - r.s) / Math.max(r.speed, BASE_SPEED * aiFactor * 0.8),
+  })).sort((a, b) => a.time - b.time);
+  const place = rows.findIndex((x) => x.r === player) + 1;
   el.resultHead.textContent = place === 1 ? "Sieg! Platz 1" : "Platz " + place;
-  el.resultList.innerHTML = order.map((r, i) =>
+  el.resultList.innerHTML = rows.map(({ r, time }, i) =>
     `<li class="${r === player ? "me" : ""}"><b>${i + 1}.</b><i style="background:#${r.color.toString(16).padStart(6, "0")}"></i>` +
-    `<span>${r.name}</span><span class="mono">${r.finished ? formatTime(r.finishTime) : "–"}</span></li>`).join("");
+    `<span>${r.name}</span><span class="mono">${formatTime(time)}</span></li>`).join("");
   el.resultInfo.textContent = "Gelenkt mit " + settings.left.toUpperCase() + " (links) und " + settings.right.toUpperCase() + " (rechts).";
   showScreen("result");
 }
