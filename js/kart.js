@@ -35,7 +35,7 @@ const $ = (id) => document.getElementById(id);
 const el = {};
 ["scene","hud","hudPos","hudOf","hudLap","hudTime","quitBtn","hudLevel","steerLeft","steerMid","steerRight",
  "steerLeftV","steerRightV","hudCenter","screenSetup","leftRow","rightRow","pairHint","diffSeg","profileSelect",
- "startBtn","setupError","screenCalib","calibSide","calibVowel","calibHint","calibCancel",
+ "startBtn","keysBtn","setupError","screenCalib","calibSide","calibVowel","calibHint","calibCancel",
  "screenResult","resultHead","resultList","resultInfo","againBtn","menuBtn"].forEach((id) => { el[id] = $(id); });
 
 // ---------- settings ----------
@@ -549,7 +549,7 @@ async function startRace(){
   }
   el.startBtn.disabled = false;
   requestWakeLock();
-  if (!(await calibrate())) { showScreen("setup"); releaseWakeLock(); return; }
+  if (!(await calibrate())) { showScreen("setup"); releaseWakeLock(); templates = null; return; }
   beginCountdown();
 }
 function beginCountdown(){
@@ -575,6 +575,8 @@ function showResult(){
 }
 
 el.startBtn.addEventListener("click", startRace);
+// keyboard-only race: for demos on a computer, or where the microphone is blocked
+el.keysBtn.addEventListener("click", () => { templates = null; el.setupError.hidden = true; beginCountdown(); });
 el.calibCancel.addEventListener("click", () => { calibCancelled = true; });
 el.againBtn.addEventListener("click", beginCountdown);
 el.menuBtn.addEventListener("click", () => { state = "setup"; buildSetup(); showScreen("setup"); });
