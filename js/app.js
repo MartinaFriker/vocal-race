@@ -83,7 +83,7 @@
   // ---------- elements ----------
   var el = {};
   ["trackGrid","carGrid","diffSeg","bestTimeLine","startBtn","setupError",
-   "screen-home","screen-setup","screen-calibrate","screen-race","screen-result","gameRace","gameKart","backHomeBtn",
+   "screen-home","screen-setup","screen-calibrate","screen-race","screen-result","gameRace","gameKart","gameTest","backHomeBtn",
    "calibRing","calibPct","calibLabel","calibCancel",
    "raceCanvas","countdownOverlay","countdownNum","cheer",
    "speedVal","streakVal","distVal","meterState","meterFill","meterThreshold",
@@ -837,10 +837,13 @@
     clearError();
     showScreen("screen-setup");
   });
-  el.gameKart.addEventListener("click", function(){
+  // Vokal-Kart and the vowel test are separate pages; coming back skips the intro.
+  function openPage(url){
     try { sessionStorage.setItem(INTRO_SEEN_KEY, "1"); } catch(e){}
-    location.href = "kart.html";
-  });
+    location.href = url;
+  }
+  el.gameKart.addEventListener("click", function(){ openPage("kart.html"); });
+  el.gameTest.addEventListener("click", function(){ openPage("vokal-test.html"); });
   el.backHomeBtn.addEventListener("click", function(){ showScreen("screen-home"); });
 
   // ---------- boot ----------
