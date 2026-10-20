@@ -30,6 +30,14 @@
     display:flex; align-items:center; justify-content:center; overflow:hidden;
   }
   .intro-overlay video{width:100%; height:100%; object-fit:cover; display:block;}
+  .intro-skip{
+    position:absolute; right:calc(18px + env(safe-area-inset-right,0px)); bottom:calc(18px + env(safe-area-inset-bottom,0px));
+    min-height:48px; padding:0 20px; border-radius:999px; cursor:pointer;
+    border:1px solid rgba(255,255,255,.45); background:rgba(0,0,0,.45); color:#fff;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    font-family:Rajdhani; font-weight:700; font-size:17px; letter-spacing:.05em; text-transform:uppercase;
+  }
+  .intro-skip:active{transform:translateY(1px);}
   body{
     background:var(--paper);
     color:var(--ink);

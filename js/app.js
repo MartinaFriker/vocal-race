@@ -90,7 +90,7 @@
    "pauseBtn","aiMarker","playerMarker",
    "resultHeadline","resultBadge","resultTime","resultBest","resultTip","retryBtn","changeTrackBtn",
    "settingsBtn","settingsBackdrop","sensSlider","levelReadout","recalibBtn","closeSettingsBtn",
-   "introOverlay","introVideo"
+   "introOverlay","introVideo","introSkip"
   ].forEach(function(id){ el[id] = document.getElementById(id); });
 
   var ctx = el.raceCanvas.getContext("2d");
@@ -99,8 +99,8 @@
   var INTRO_VIDEO = "assets/intro.mp4";
 
   // ---------- intro video ----------
-  // Spielt einmal automatisch (stumm, kein Skip-Button) und blendet danach
-  // zur Auswahlseite über. Mehrere Sicherheitsnetze, falls "ended" nie feuert
+  // Plays once automatically (muted, with a skip button) and then shows the
+  // start screen. Mehrere Sicherheitsnetze, falls "ended" nie feuert
   // (Autoplay blockiert, Decode-Fehler, o.ä.), damit die App nie hinter dem
   // Intro hängen bleibt.
   // Played once per visit: coming back from Vokal-Kart goes straight to the game choice.
@@ -122,6 +122,7 @@
     }
     video.addEventListener("ended", finishIntro);
     video.addEventListener("error", finishIntro);
+    if(el.introSkip){ el.introSkip.addEventListener("click", finishIntro); }
     // Großzügig, weil das Video beim allerersten Start erst geladen werden muss.
     var fallback = setTimeout(finishIntro, 15000);
     video.addEventListener("ended", function(){ clearTimeout(fallback); });
