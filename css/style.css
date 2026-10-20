@@ -67,7 +67,19 @@
   /* Autokarten: eigenes helles Panel (unabhängig vom dunklen Anthrazit-Hintergrund),
      damit dunkle Autos (Audi, Lamborghini) nicht mit dem Hintergrund verschmelzen. */
   #screen-home .car-card{background:rgba(238,239,233,.96); border-color:rgba(0,0,0,.10); color:#171a1f;}
-  #screen-home .car-card[data-selected="true"]{background:#fff;}
+  /* selected car: light green fill, thick green frame and a check mark; the others recede */
+  #screen-home .car-card{position:relative; transition:opacity .15s ease, background .15s ease, box-shadow .15s ease;}
+  #screen-home .car-card[data-selected="false"]{opacity:.72;}
+  #screen-home .car-card[data-selected="true"]{
+    background:#e4ffb0; border-color:var(--signal);
+    box-shadow:0 0 0 4px var(--signal) inset, 0 0 22px -2px var(--signal);
+  }
+  #screen-home .car-card[data-selected="true"]::after{
+    content:"✓"; position:absolute; top:-9px; right:-9px; width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--signal); color:var(--signal-ink); font-weight:800; font-size:15px;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);
+  }
 
   /* home screen: game choice */
   .home-title{font-size:18px; letter-spacing:.06em; color:rgba(255,255,255,.85); margin-top:4px;}
