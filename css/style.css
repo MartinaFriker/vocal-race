@@ -160,7 +160,12 @@
   }
   .track-card[data-selected="true"] .track-meta{color:var(--signal);}
 
-  .car-grid{display:flex; flex-wrap:wrap; gap:10px;}
+  /* centred, always 2x2 or 4 in a row (never 3 + 1) */
+  .car-grid{display:grid; grid-template-columns:repeat(2, minmax(0, 150px)); justify-content:center; gap:12px;}
+  .car-grid .car-card{width:auto;}
+  @media (min-width:560px){
+    .car-grid{grid-template-columns:repeat(4, minmax(0, 140px));}
+  }
   .car-card{
     --card-accent:var(--signal);
     display:flex; flex-direction:column; align-items:center; gap:6px;
