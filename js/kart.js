@@ -66,7 +66,9 @@ function loadProfiles(){
 }
 
 // ---------- renderer / scene ----------
-const renderer = new THREE.WebGLRenderer({ canvas: el.scene, antialias: true });
+// logarithmic depth: thin layers (road, lines, kart shadows) stay apart at a distance;
+// with the normal depth buffer they flickered through each other on iPhone
+const renderer = new THREE.WebGLRenderer({ canvas: el.scene, antialias: true, logarithmicDepthBuffer: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
@@ -131,10 +133,10 @@ function buildWorld(){
   const half = ROAD_WIDTH / 2;
   scene.add(stripMesh(-half, half, 0, () => [0.30, 0.31, 0.35]));
   const curb = (i) => (Math.floor(i / 3) % 2 ? [0.95, 0.95, 0.95] : [0.85, 0.12, 0.15]);
-  scene.add(stripMesh(half, half + 1.4, 0.01, curb));
-  scene.add(stripMesh(-half - 1.4, -half, 0.01, curb));
+  scene.add(stripMesh(half, half + 1.4, 0.02, curb));
+  scene.add(stripMesh(-half - 1.4, -half, 0.02, curb));
   // dashed centre line
-  scene.add(stripMesh(-0.15, 0.15, 0.015, (i) => (Math.floor(i / 4) % 2 ? null : [1, 1, 1])));
+  scene.add(stripMesh(-0.15, 0.15, 0.03, (i) => (Math.floor(i / 4) % 2 ? null : [1, 1, 1])));
 
   // start/finish line (checker)
   const c = document.createElement("canvas"); c.width = 128; c.height = 16;
@@ -143,7 +145,7 @@ function buildWorld(){
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter;
   const line = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, 2), new THREE.MeshBasicMaterial({ map: tex }));
   const st = sampleAt(START_LINE_S);
-  line.position.copy(st.pos).setY(0.03);
+  line.position.copy(st.pos).setY(0.05);
   line.rotation.x = -Math.PI / 2;
   line.rotation.z = Math.atan2(st.tan.x, st.tan.z);
   scene.add(line);
@@ -233,8 +235,9 @@ function makeKart(color, helmet){
   [[-0.88, 0.95], [0.88, 0.95], [-0.92, -0.9], [0.92, -0.9]].forEach(([x, z]) => {
     const w = new THREE.Mesh(wheelGeo, dark); w.position.set(x, 0.38, z); g.add(w);
   });
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 }));
-  shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02; shadow.scale.set(0.8, 1.25, 1); g.add(shadow);
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20), new THREE.MeshBasicMaterial({
+    color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.08; shadow.scale.set(0.8, 1.25, 1); g.add(shadow);
   scene.add(g);
   return g;
 }
@@ -242,7 +245,7 @@ function makeKart(color, helmet){
 const player = { mesh: makeKart(PLAYER_COLOR, 0xffffff), pos: new THREE.Vector3(), heading: 0, speed: 0, steer: 0,
   idx: 0, lap: 0, progress: 0, finished: false, finishTime: 0, name: "Du", color: PLAYER_COLOR };
 const ais = OPPONENTS.map((o) => ({ ...o, mesh: makeKart(o.color, o.helmet), s: 0, offset: 0, targetOffset: 0, speed: 0,
-  finished: false, finishTime: 0, form: 1, formTarget: 1, formTimer: 0, lane0: o.lane, laneTimer: 0 }));
+  finished: false, finishTime: 0, form: 1, formTarget: 1, formTimer: 0, lane0: o.lane, laneTimer: 0, avoidHold: 0, yawOff: 0 }));
 const LANES = [-4.5, 0, 4.5];
 
 // ---------- race state ----------
@@ -263,6 +266,7 @@ function resetRace(){
   ais.forEach((a) => {
     a.lane = a.lane0; a.s = a.start; a.offset = a.lane; a.targetOffset = a.lane; a.speed = 0; a.finished = false;
     a.form = 1; a.formTarget = 1; a.formTimer = 2 + Math.random() * 3; a.laneTimer = 3 + Math.random() * 4;
+    a.avoidHold = 0; a.yawOff = 0;
   });
   clearFireworks();
   finishCam = false;
@@ -278,7 +282,7 @@ function placeKarts(){
   ais.forEach((a) => {
     const sp = sampleAt(a.s);
     a.mesh.position.copy(sp.pos).addScaledVector(sp.left, a.offset);
-    a.mesh.rotation.y = Math.atan2(sp.tan.x, sp.tan.z) + (a.targetOffset - a.offset) * 0.03;
+    a.mesh.rotation.y = Math.atan2(sp.tan.x, sp.tan.z) + a.yawOff;
   });
 }
 
@@ -349,18 +353,26 @@ function update(dt){
     a.s += a.speed * dt;
     if (!a.finished && a.s >= LAPS * TRACK_LENGTH + START_LINE_S) { a.finished = true; a.finishTime = raceTime; finishOrder.push(a); }
 
-    // avoid the kart ahead (player or another AI) by moving to a free lane
-    a.targetOffset = a.lane;
-    const others = [{ s: player.progress, off: player.pos.clone().sub(P[player.idx]).dot(LEFT[player.idx]) }]
-      .concat(ais.filter((b) => b !== a).map((b) => ({ s: b.s, off: b.offset })));
-    others.forEach((o) => {
-      const ahead = o.s - a.s;
-      if (ahead > 0 && ahead < 9 && Math.abs(o.off - a.offset) < 2.6) {
-        a.targetOffset = o.off > 0 ? o.off - 4.5 : o.off + 4.5;
-      }
-    });
-    a.targetOffset = THREE.MathUtils.clamp(a.targetOffset, -ROAD_WIDTH / 2 + 1.6, ROAD_WIDTH / 2 - 1.6);
+    // avoid the kart ahead (player or another AI) by moving to a free lane.
+    // A dodge is kept for a while: deciding anew every frame flipped the target lane back
+    // and forth (about every third frame) and made the opponents twitch, worst on iPhone.
+    a.avoidHold -= dt;
+    if (a.avoidHold <= 0) {
+      let target = a.lane;
+      const others = [{ s: player.progress, off: player.pos.clone().sub(P[player.idx]).dot(LEFT[player.idx]) }]
+        .concat(ais.filter((b) => b !== a).map((b) => ({ s: b.s, off: b.offset })));
+      others.forEach((o) => {
+        const ahead = o.s - a.s;
+        if (ahead > 0 && ahead < 10 && Math.abs(o.off - a.offset) < 2.6) target = o.off > 0 ? o.off - 4.5 : o.off + 4.5;
+      });
+      if (target !== a.lane) a.avoidHold = 1.4;
+      a.targetOffset = THREE.MathUtils.clamp(target, -ROAD_WIDTH / 2 + 1.6, ROAD_WIDTH / 2 - 1.6);
+    }
+    const prevOffset = a.offset;
     a.offset += (a.targetOffset - a.offset) * Math.min(1, dt * 1.5);
+    // nose follows the actual sideways movement, smoothed (no snapping when the target changes)
+    const sideways = dt > 0 ? (a.offset - prevOffset) / dt : 0;
+    a.yawOff += (Math.atan2(sideways, Math.max(a.speed, 3)) - a.yawOff) * Math.min(1, dt * 6);
 
     // bump: push the player away from an opponent instead of passing through it
     const sp = sampleAt(a.s);
