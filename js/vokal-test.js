@@ -347,10 +347,35 @@
       ctx.fill();
     });
     if(current && current.f1){
-      ctx.beginPath();
-      ctx.arc(xOf(current.f2, w), yOf(current.f1, h), 7, 0, Math.PI * 2);
-      ctx.fillStyle = "#c8ff3d"; ctx.fill();
+      drawCar(xOf(current.f2, w), yOf(current.f1, h), 42);
     }
+  }
+
+  // Car seen from the front, as the live marker. Drawn as a vector shape (transparent
+  // background, sharp at any size); windscreen and headlights are cut out (even-odd fill).
+  // Coordinates are in a 1024 box, centred on (512, 540).
+  var CAR_SHAPE = new Path2D(
+    "M200,405 C240,320 260,270 330,262 L694,262 C764,270 784,320 824,405" +
+    " C840,380 900,372 925,395 C940,420 925,445 900,445 L860,450" +
+    " C890,500 905,540 905,580 L905,660 C895,700 890,720 890,760 L890,790" +
+    " C890,815 870,822 830,822 C780,822 765,810 765,785 L765,760 C765,754 760,752 750,752" +
+    " L274,752 C264,752 259,754 259,760 L259,785 C259,810 244,822 194,822" +
+    " C154,822 134,815 134,790 L134,760 C134,720 129,700 119,660 L119,580" +
+    " C119,540 134,500 164,450 L124,445 C99,445 84,420 99,395 C124,372 184,380 200,405 Z" +
+    " M240,420 C260,360 270,300 330,295 L694,295 C754,300 764,360 784,420 Z" +
+    " M167,567 a70,37 0 1,0 140,0 a70,37 0 1,0 -140,0 Z" +
+    " M717,567 a70,37 0 1,0 140,0 a70,37 0 1,0 -140,0 Z");
+  function drawCar(x, y, width){
+    var s = width / 840;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.translate(-512, -540);
+    ctx.shadowColor = "rgba(200,255,61,.55)";
+    ctx.shadowBlur = 10; // not scaled by the transform
+    ctx.fillStyle = "#c8ff3d";
+    ctx.fill(CAR_SHAPE, "evenodd");
+    ctx.restore();
   }
 
   document.addEventListener("visibilitychange", function(){
