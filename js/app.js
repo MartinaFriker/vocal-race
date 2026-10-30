@@ -163,6 +163,7 @@
     ["screen-home","screen-setup","screen-calibrate","screen-race","screen-result"].forEach(function(s){
       el[s].hidden = (s!==id);
     });
+    document.body.classList.toggle("is-racing", id === "screen-race");
     // One history entry for everything past the home screen, so the Android back
     // button returns to the game choice instead of closing the app.
     var inGame = history.state && history.state.vokalrennen;
@@ -396,9 +397,15 @@
   function resizeCanvas(){
     var rect = el.raceCanvas.getBoundingClientRect();
     var dpr = window.devicePixelRatio || 1;
-    el.raceCanvas.width = Math.max(1,Math.round(rect.width*dpr));
-    el.raceCanvas.height = Math.max(1,Math.round(rect.height*dpr));
+    var cw = Math.max(1,Math.round(rect.width*dpr)), chh = Math.max(1,Math.round(rect.height*dpr));
+    // Setting width/height clears the canvas. Phones fire "resize" whenever the address bar
+    // slides in or out, so only touch it when the size really changed (avoids a blank flash).
+    if(el.raceCanvas.width !== cw || el.raceCanvas.height !== chh){
+      el.raceCanvas.width = cw;
+      el.raceCanvas.height = chh;
+    }
     ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.imageSmoothingQuality = "high";
   }
   window.addEventListener("resize", function(){ if(!el["screen-race"].hidden){ resizeCanvas(); } });
 
@@ -421,8 +428,8 @@
     stopRaceLoop();
     requestWakeLock();
 
-    el.aiMarker.style.left = "0%";
-    el.playerMarker.style.left = "0%";
+    placeMarker(el.aiMarker, 0);
+    placeMarker(el.playerMarker, 0);
     el.pauseBtn.textContent = "Pause";
     el.cheer.textContent = "Bereit? Ton halten zum Losfahren!";
 
@@ -531,12 +538,18 @@
     el.cheer.textContent = msg;
   }
 
+  // Position a marker along the progress bar with a GPU transform (no layout, no transition).
+  function placeMarker(marker, fraction){
+    var x = Math.round(fraction * marker.parentNode.clientWidth * 2) / 2;
+    marker.style.transform = "translate(" + x + "px,-50%)";
+  }
+
   function updateHud(){
     el.speedVal.textContent = Math.round(player.speed*3.2)+" km/h";
     el.streakVal.textContent = streak.toFixed(1)+" s";
     el.distVal.textContent = Math.round(Math.min(player.distance,trackDistance))+" / "+trackDistance+" m";
-    el.playerMarker.style.left = (clamp(player.distance/trackDistance,0,1)*100)+"%";
-    el.aiMarker.style.left = (clamp(ai.distance/trackDistance,0,1)*100)+"%";
+    placeMarker(el.playerMarker, clamp(player.distance/trackDistance,0,1));
+    placeMarker(el.aiMarker, clamp(ai.distance/trackDistance,0,1));
   }
 
   // ---------- drawing ----------
@@ -726,7 +739,8 @@
     var carImg = carImageEls[selectedCar];
     if(carImg && carImg.complete && carImg.naturalWidth>0){
       var cw = 128, chh = cw * (carImg.naturalHeight/carImg.naturalWidth);
-      ctx.drawImage(carImg, w*0.2-cw/2, carY-chh*0.58, cw, chh);
+      // whole pixels: avoids the car shimmering between neighbouring pixels
+      ctx.drawImage(carImg, Math.round(w*0.2-cw/2), Math.round(carY-chh*0.58), cw, Math.round(chh));
     } else {
       drawCar(ctx, w*0.2, carY, 1, { body:"#c8102e", accent:"#161616", glass:"#1c2430", profile:"wedge" });
     }

@@ -242,13 +242,23 @@
   .rail-marker{
     position:absolute; top:50%; width:26px; height:26px; margin-left:-13px; transform:translate(0,-50%);
     border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
-    transition:left .12s linear; border:2px solid var(--paper);
+    border:2px solid var(--paper);
+    /* moved with transform every frame (see updateHud): no CSS transition restarting each frame */
+    left:0; will-change:transform;
   }
   .rail-marker.player{background:var(--signal); color:var(--signal-ink); z-index:2; box-shadow:0 0 16px -3px var(--signal);}
   .rail-marker.ai{background:#e7e9ec; color:#14161a; z-index:1;}
   .rail-label{position:absolute; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); top:-2px;}
 
-  #raceCanvas{width:100%; aspect-ratio:16/7; max-height:340px; border-radius:14px; display:block; border:1px solid var(--line);}
+  #raceCanvas{width:100%; aspect-ratio:16/7; max-height:340px; border-radius:14px; display:block; border:1px solid var(--line); transform:translateZ(0);}
+
+  /* No blur during the race: the race screen has a plain dark background, so the frosted-glass
+     look changes nothing visible, but phones recompute it every frame next to the redrawn
+     canvas, which can make the cars flicker (iOS Safari in particular). */
+  #screen-race .rail, #screen-race .stat, #screen-race .voice-panel, #screen-race .btn-secondary{
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+  }
+  body.is-racing .settings-fab{backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(18,20,16,.88);}
 
   .hud{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
   .stat{
