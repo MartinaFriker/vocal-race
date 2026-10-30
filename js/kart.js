@@ -9,13 +9,19 @@ const VOWELS = VA.VOWELS;
 const ROAD_WIDTH = 16;          // metres; generous so steering with a short delay stays fun
 const LAPS = 2;
 const BASE_SPEED = 17;          // m/s on the road
-const OFFROAD_FACTOR = 0.55;    // speed on grass
+const OFFROAD_FACTOR = 0.55;    // speed on grass (the easiest level uses its own, gentler value)
 const TURN_RATE = 1.25;         // rad/s at full steering
 const START_LINE_S = 24;        // distance of the start/finish line from the track origin
+// Keys keep their old meaning so a saved choice stays the same strength; only the names moved
+// up one step when the gentler "beginner" level was added below them.
 const DIFFICULTIES = [
-  { key: "easy",   label: "Leicht", factor: 0.80 },
-  { key: "medium", label: "Mittel", factor: 0.88 },
-  { key: "hard",   label: "Schwer", factor: 0.95 },
+  // beginner: while the child makes a sound but the vowel is unclear, the kart follows the road by
+  // itself (assist); in silence it still goes straight. Less loss on the grass, and opponents that
+  // get far ahead wait (waitBand) so the race stays close.
+  { key: "beginner", label: "Leicht", factor: 0.78, offroad: 0.70, assist: 0.5, waitBand: 0.2 },
+  { key: "easy",     label: "Mittel", factor: 0.80 },
+  { key: "medium",   label: "Schwer", factor: 0.88 },
+  { key: "hard",     label: "Profi",  factor: 0.95 },
 ];
 const OPPONENTS = [
   { name: "Blau",  color: 0x2f6fe0, helmet: 0xffffff, lane: 4.5,  start: 14, pace: 1.00 },
@@ -53,7 +59,7 @@ const el = {};
  "screenResult","resultHead","resultList","resultInfo","againBtn","menuBtn"].forEach((id) => { el[id] = $(id); });
 
 // ---------- settings ----------
-let settings = { left: "a", right: "i", difficulty: "easy", profile: "" };
+let settings = { left: "a", right: "i", difficulty: "beginner", profile: "" };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) {}
 function saveSettings(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
 function loadProfiles(){
@@ -250,6 +256,7 @@ const LANES = [-4.5, 0, 4.5];
 
 // ---------- race state ----------
 let state = "setup";      // setup | calib | countdown | race | result
+let offroadFactor = OFFROAD_FACTOR, steerAssist = 0, waitBand = 0.08;
 let raceTime = 0, countdown = 0, aiFactor = 0.8, finishOrder = [];
 let keys = { left: false, right: false };
 let voiceSteer = 0;       // -1 left, 0 straight, 1 right (from the microphone)
@@ -258,6 +265,9 @@ let lastT = performance.now();
 function resetRace(){
   const d = DIFFICULTIES.find((x) => x.key === settings.difficulty) || DIFFICULTIES[0];
   aiFactor = d.factor;
+  offroadFactor = d.offroad || OFFROAD_FACTOR;
+  steerAssist = d.assist || 0;
+  waitBand = d.waitBand || 0.08;
   raceTime = 0; finishOrder = [];
   const sp = sampleAt(2);
   player.pos.copy(sp.pos); player.heading = Math.atan2(sp.tan.x, sp.tan.z);
@@ -292,13 +302,17 @@ function update(dt){
   const keySteer = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
   let target = keySteer !== 0 ? keySteer : voiceSteer;
   if (player.finished) target = autopilotSteer(); // victory lap: the kart steers itself
+  // easiest level: voice heard but no clear vowel -> help follow the road (silence: straight on)
+  else if (steerAssist && Math.abs(target) < 0.1 && (voiceHeard || testVoice)) {
+    target = THREE.MathUtils.clamp(autopilotSteer(), -steerAssist, steerAssist);
+  }
   player.steer += (target - player.steer) * Math.min(1, dt * 7);
 
   // player physics
   const near = nearestIndex(player.pos, player.idx);
   const lateral = player.pos.clone().sub(P[near]).dot(LEFT[near]);
   const onRoad = Math.abs(lateral) <= ROAD_WIDTH / 2 + 0.6;
-  const targetSpeed = state === "race" && !player.finished ? BASE_SPEED * (onRoad ? 1 : OFFROAD_FACTOR) : (player.finished ? BASE_SPEED * 0.6 : 0);
+  const targetSpeed = state === "race" && !player.finished ? BASE_SPEED * (onRoad ? 1 : offroadFactor) : (player.finished ? BASE_SPEED * 0.6 : 0);
   player.speed += (targetSpeed - player.speed) * Math.min(1, dt * (targetSpeed > player.speed ? 1.2 : 2.5));
   // steer right = clockwise from above; heading grows to the left
   player.heading -= player.steer * TURN_RATE * dt * Math.min(1, player.speed / 6);
@@ -329,7 +343,7 @@ function update(dt){
     if (state === "race") {
       // gentle rubber band: keeps the field together so overtaking stays possible
       const gap = a.s - player.progress;
-      const band = THREE.MathUtils.clamp(-gap / 120, -0.08, 0.08);
+      const band = THREE.MathUtils.clamp(-gap / 120, -waitBand, 0.08);
       // each kart has a "form" that changes every few seconds: it pushes for a while,
       // catches up, then drops back again, so the karts are never equally fast
       a.formTimer -= dt;
@@ -625,6 +639,8 @@ function idleCamera(now){
 // ---------- microphone & vowels ----------
 let audioCtx = null, analyser = null, timeData = null, micStream = null;
 let threshold = 0.004, gaugeMax = 0.02, templates = null, hist = [];
+let voiceHeard = false;   // any sound above the noise threshold, vowel recognised or not
+let testVoice = false;    // automated checks only: pretend the child is making a sound
 
 async function ensureMic(){
   if (analyser) return;
@@ -644,9 +660,10 @@ function rms(){
   return Math.sqrt(s / timeData.length);
 }
 function updateVoice(now){
-  if (!analyser || !templates) { voiceSteer = 0; return; }
+  if (!analyser || !templates) { voiceSteer = 0; voiceHeard = false; return; }
   const level = rms();
   el.hudLevel.style.width = Math.min(100, (level / gaugeMax) * 100) + "%";
+  voiceHeard = level > threshold;
   if (level > threshold) {
     const r = VA.analyzeFrame(timeData, audioCtx.sampleRate);
     if (r) hist.push({ t: now, env: r.envelope });
@@ -827,7 +844,8 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // test hook for automated checks (no effect on normal play)
-window.__kart = { get state(){ return state; }, player, ais, ranking, sampleAt, P, T, LEFT, N, TRACK_LENGTH, get voiceSteer(){ return voiceSteer; }, keys };
+window.__kart = { get state(){ return state; }, player, ais, ranking, sampleAt, P, T, LEFT, N, TRACK_LENGTH, get voiceSteer(){ return voiceSteer; }, keys,
+  set testVoice(v){ testVoice = !!v; } };
 
 buildSetup();
 showScreen("setup");
