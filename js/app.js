@@ -90,7 +90,7 @@
    "pauseBtn","aiMarker","playerMarker",
    "resultHeadline","resultBadge","resultTime","resultBest","resultTip","retryBtn","changeTrackBtn",
    "settingsBtn","settingsBackdrop","sensSlider","levelReadout","recalibBtn","closeSettingsBtn",
-   "introOverlay","introVideo","introSkip"
+   "introOverlay","introVideo","introSkip","introSound"
   ].forEach(function(id){ el[id] = document.getElementById(id); });
 
   var ctx = el.raceCanvas.getContext("2d");
@@ -110,7 +110,9 @@
     var seen = false;
     try { seen = sessionStorage.getItem(INTRO_SEEN_KEY) === "1"; } catch(e){}
     if(!overlay || !video || typeof INTRO_VIDEO === "undefined" || seen){ if(overlay) overlay.hidden = true; return; }
-    video.muted = true;
+    // Try with the video's own sound first; browsers that block sound before a tap get the
+    // muted video plus a "Ton an" button (one tap turns the sound on).
+    video.muted = false;
     var done = false, objectUrl = null;
     function finishIntro(){
       if(done) return;
@@ -123,6 +125,14 @@
     video.addEventListener("ended", finishIntro);
     video.addEventListener("error", finishIntro);
     if(el.introSkip){ el.introSkip.addEventListener("click", finishIntro); }
+    if(el.introSound){
+      el.introSound.addEventListener("click", function(){
+        video.muted = false;
+        video.volume = 1;
+        video.play().catch(function(){});
+        el.introSound.hidden = true;
+      });
+    }
     // Großzügig, weil das Video beim allerersten Start erst geladen werden muss.
     var fallback = setTimeout(finishIntro, 15000);
     video.addEventListener("ended", function(){ clearTimeout(fallback); });
@@ -130,8 +140,11 @@
       var p = video.play();
       if(p && p.catch){
         p.catch(function(){
-          // Ton-Autoplay von Browser blockiert -> stumm versuchen, damit das Intro nie hängen bleibt.
-          if(!video.muted){ video.muted = true; video.play().catch(finishIntro); }
+          // Sound blocked until a tap -> play muted so the intro never hangs, and offer the sound button.
+          if(!video.muted){
+            video.muted = true;
+            video.play().then(function(){ if(el.introSound && !done){ el.introSound.hidden = false; } }).catch(finishIntro);
+          }
           else { finishIntro(); }
         });
       }
