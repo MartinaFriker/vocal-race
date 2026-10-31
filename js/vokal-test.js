@@ -340,12 +340,19 @@
       ctx.font = "11px 'IBM Plex Mono', monospace";
     });
 
-    trail.forEach(function(t, i){
+    // Tail behind the car: a line that grows wider and brighter towards the newest point,
+    // so it still shows around the (much larger) car marker.
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for(var i = 1; i < trail.length; i++){
+      var k = i / trail.length;
       ctx.beginPath();
-      ctx.arc(xOf(t.f2, w), yOf(t.f1, h), 3, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(200,255,61," + (0.08 + 0.4 * i / trail.length) + ")";
-      ctx.fill();
-    });
+      ctx.moveTo(xOf(trail[i - 1].f2, w), yOf(trail[i - 1].f1, h));
+      ctx.lineTo(xOf(trail[i].f2, w), yOf(trail[i].f1, h));
+      ctx.lineWidth = 2 + 12 * k;
+      ctx.strokeStyle = "rgba(200,255,61," + (0.06 + 0.5 * k) + ")";
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
     if(current && current.f1){
       drawCar(xOf(current.f2, w), yOf(current.f1, h), 42);
     }
