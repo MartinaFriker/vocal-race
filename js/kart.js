@@ -45,6 +45,7 @@ OPPONENTS.forEach((o) => {
 });
 const SURE_CONFIDENCE = 0.12;   // two-vowel decision: nearest must be clearly closer
 const HISTORY_MS = 160;
+const HOLD_MS = 450;          // a sure vowel keeps steering this long through unclear moments of the same sound
 const CALIB_SECONDS = 2;
 const NOISE_SECONDS = 1;
 const SETTINGS_KEY = "vokalkart_settings";
@@ -639,6 +640,7 @@ function idleCamera(now){
 // ---------- microphone & vowels ----------
 let audioCtx = null, analyser = null, timeData = null, micStream = null;
 let threshold = 0.004, gaugeMax = 0.02, templates = null, hist = [];
+let lastSure = null;      // { steer, t } of the last clearly recognised vowel
 let voiceHeard = false;   // any sound above the noise threshold, vowel recognised or not
 let testVoice = false;    // automated checks only: pretend the child is making a sound
 
@@ -667,12 +669,18 @@ function updateVoice(now){
   if (level > threshold) {
     const r = VA.analyzeFrame(timeData, audioCtx.sampleRate);
     if (r) hist.push({ t: now, env: r.envelope });
-  } else { hist = []; }
+  } else { hist = []; lastSure = null; }
   while (hist.length && now - hist[0].t > HISTORY_MS) hist.shift();
+  let sure = 0;
   if (hist.length >= 2) {
     const cls = VA.classify(VA.medianEnvelope(hist.map((h) => h.env)), templates);
-    voiceSteer = cls && cls.confidence >= SURE_CONFIDENCE ? (cls.vowel === settings.left ? -1 : 1) : 0;
-  } else { voiceSteer = 0; }
+    sure = cls && cls.confidence >= SURE_CONFIDENCE ? (cls.vowel === settings.left ? -1 : 1) : 0;
+  }
+  // While the sound goes on, short unclear moments keep the last sure direction. Otherwise
+  // the easy level's road assist takes over in every wobble, and off the road it pulls hard
+  // towards the track, against the vowel the child is holding.
+  if (sure) lastSure = { steer: sure, t: now };
+  voiceSteer = sure || (lastSure && now - lastSure.t < HOLD_MS ? lastSure.steer : 0);
 }
 
 // Calibration: 1 s silence, then each of the two vowels for 2 s (skipped with a saved profile).
@@ -786,7 +794,7 @@ function beginCountdown(){
   resetRace();
   updateCamera(0, true);
   showScreen("race");
-  hist = [];
+  hist = []; lastSure = null;
   countdown = 3;
   state = "countdown";
   requestWakeLock();
